@@ -27,6 +27,7 @@ func InitDatabase() error {
 
 	// 自动迁移数据表
 	err = DB.AutoMigrate(
+		&models.Person{},
 		&models.Customer{},
 		&models.Task{},
 		&models.Agreement{},

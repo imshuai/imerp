@@ -11,6 +11,17 @@ func SetupRoutes(r *gin.Engine) {
 	// API路由组
 	api := r.Group("/api")
 	{
+		// 人员管理路由
+		people := api.Group("/people")
+		{
+			people.GET("", controllers.GetPeople)
+			people.POST("", controllers.CreatePerson)
+			people.GET("/:id", controllers.GetPerson)
+			people.PUT("/:id", controllers.UpdatePerson)
+			people.DELETE("/:id", controllers.DeletePerson)
+			people.GET("/:id/customers", controllers.GetPersonCustomers)
+		}
+
 		// 客户管理路由
 		customers := api.Group("/customers")
 		{

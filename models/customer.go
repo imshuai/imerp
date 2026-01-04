@@ -1,21 +1,56 @@
 package models
 
-import "time"
+import (
+	"time"
+	"gorm.io/datatypes"
+)
+
+// CustomerType 客户类型
+type CustomerType string
+
+const (
+	CustomerTypeLimitedCompany     CustomerType = "limited_company"      // 有限公司
+	CustomerTypeSoleProprietorship CustomerType = "sole_proprietorship"  // 个人独资企业
+	CustomerTypePartnership        CustomerType = "partnership"          // 合伙企业
+	CustomerTypeIndividualBusiness CustomerType = "individual_business"  // 个体工商户
+)
+
+// InvestorInfo 投资人信息（JSON结构）
+type InvestorInfo struct {
+	PersonID          uint              `json:"person_id"`
+	ShareRatio        float64           `json:"share_ratio"`         // 持股比例
+	InvestmentRecords []InvestmentRecord `json:"investment_records,omitempty"` // 出资记录（可选）
+}
+
+// InvestmentRecord 出资记录
+type InvestmentRecord struct {
+	Date   string  `json:"date"`   // 出资日期
+	Amount float64 `json:"amount"` // 出资金额
+}
 
 // Customer 客户信息
 type Customer struct {
-	ID        uint      `json:"id" gorm:"primaryKey"`
-	Name      string    `json:"name" gorm:"not null"`           // 公司名称/个人姓名
-	Contact   string    `json:"contact"`                         // 联系人
-	Phone     string    `json:"phone"`                           // 联系电话
-	Email     string    `json:"email"`                           // 邮箱
-	Address   string    `json:"address"`                         // 地址
-	TaxNumber string    `json:"tax_number"`                      // 税号
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID                uint          `json:"id" gorm:"primaryKey"`
+	Name              string        `json:"name" gorm:"not null"` // 公司名称/个人姓名
+	Phone             string        `json:"phone"`                // 联系电话
+	Address           string        `json:"address"`              // 地址
+	TaxNumber         string        `json:"tax_number"`           // 税号
+	Type              CustomerType  `json:"type" gorm:"not null"` // 客户类型
+	RepresentativeID  *uint         `json:"representative_id"`    // 法定代表人ID
+	Investors         datatypes.JSON `json:"investors"`           // 投资人JSON数组
+	ServicePersonIDs  string        `json:"service_person_ids"`  // 服务人员ID，逗号分隔: "5,6"
+	AgreementIDs      string        `json:"agreement_ids"`       // 代理协议ID，逗号分隔: "1,3,5"
+	RegisteredCapital float64      `json:"registered_capital"`   // 注册资本
+	CreatedAt         time.Time     `json:"created_at"`
+	UpdatedAt         time.Time     `json:"updated_at"`
 
-	// 关联
-	Tasks      []Task      `json:"tasks,omitempty" gorm:"foreignKey:CustomerID"`
-	Agreements []Agreement `json:"agreements,omitempty" gorm:"foreignKey:CustomerID"`
-	Payments   []Payment   `json:"payments,omitempty" gorm:"foreignKey:CustomerID"`
+	// 关联（通过查询加载，不存储在数据库）
+	Representative *Person     `json:"representative,omitempty" gorm:"-"`
+	InvestorList   []Person    `json:"investor_list,omitempty" gorm:"-"`
+	ServicePersons []Person    `json:"service_persons,omitempty" gorm:"-"`
+	Agreements     []Agreement `json:"agreements_list,omitempty" gorm:"-"`
+
+	// 原有关联
+	Tasks    []Task    `json:"tasks,omitempty" gorm:"foreignKey:CustomerID"`
+	Payments []Payment `json:"payments,omitempty" gorm:"foreignKey:CustomerID"`
 }

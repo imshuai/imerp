@@ -10,11 +10,117 @@
 
 ```json
 {
-  "code": 0,           // 0表示成功，非0表示错误
+  "code": 0,
   "message": "success",
-  "data": {}           // 响应数据
+  "data": {}
 }
 ```
+
+## 人员管理 API
+
+### 1. 获取人员列表
+
+**请求**
+```
+GET /api/people
+```
+
+**查询参数**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| type | string | 否 | 人员类型 (representative/investor/service_person/mixed) |
+| keyword | string | 否 | 搜索关键词（匹配姓名、电话、身份证） |
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "total": 5,
+    "items": [
+      {
+        "id": 1,
+        "type": "representative",
+        "name": "张三",
+        "phone": "13800138000",
+        "id_card": "110101199001011234",
+        "representative_customer_ids": "1,5",
+        "investor_customer_ids": "",
+        "service_customer_ids": "",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+### 2. 创建人员
+
+**请求**
+```
+POST /api/people
+Content-Type: application/json
+```
+
+**请求体**
+```json
+{
+  "type": "representative",
+  "name": "张三",
+  "phone": "13800138000",
+  "id_card": "110101199001011234",
+  "password": "abc123"
+}
+```
+
+### 3. 获取人员详情
+
+**请求**
+```
+GET /api/people/:id
+```
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "person": { ... },
+    "customers": {
+      "representative": [],
+      "investor": [],
+      "service": []
+    }
+  }
+}
+```
+
+### 4. 更新人员
+
+**请求**
+```
+PUT /api/people/:id
+Content-Type: application/json
+```
+
+### 5. 删除人员
+
+**请求**
+```
+DELETE /api/people/:id
+```
+
+### 6. 获取人员关联的企业
+
+**请求**
+```
+GET /api/people/:id/customers
+```
+
+---
 
 ## 客户管理 API
 
@@ -28,7 +134,10 @@ GET /api/customers
 **查询参数**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| keyword | string | 否 | 搜索关键词（匹配名称、税号、联系人、电话） |
+| keyword | string | 否 | 搜索关键词（匹配名称、税号、电话） |
+| representative | string | 否 | 按法定代表人搜索 |
+| investor | string | 否 | 按投资人搜索 |
+| service_person | string | 否 | 按服务人员搜索 |
 
 **响应示例**
 ```json
@@ -41,11 +150,15 @@ GET /api/customers
       {
         "id": 1,
         "name": "某某科技有限公司",
-        "contact": "张三",
         "phone": "13800138000",
-        "email": "contact@example.com",
         "address": "北京市朝阳区xxx",
         "tax_number": "91110000xxxxxxxx",
+        "type": "limited_company",
+        "representative_id": 1,
+        "investors": [{"person_id": 2, "share_ratio": 51.0}],
+        "service_person_ids": "5,6",
+        "agreement_ids": "1,3",
+        "registered_capital": 1000000.00,
         "created_at": "2024-01-01T00:00:00Z",
         "updated_at": "2024-01-01T00:00:00Z"
       }
@@ -66,13 +179,26 @@ Content-Type: application/json
 ```json
 {
   "name": "某某科技有限公司",
-  "contact": "张三",
   "phone": "13800138000",
-  "email": "contact@example.com",
   "address": "北京市朝阳区xxx",
-  "tax_number": "91110000xxxxxxxx"
+  "tax_number": "91110000xxxxxxxx",
+  "type": "limited_company",
+  "representative_id": 1,
+  "investors": [
+    {"person_id": 2, "share_ratio": 51.0},
+    {"person_id": 3, "share_ratio": 49.0}
+  ],
+  "service_person_ids": "5,6",
+  "agreement_ids": "1,3",
+  "registered_capital": 1000000.00
 }
 ```
+
+**客户类型 (type)**
+- `limited_company` - 有限公司
+- `sole_proprietorship` - 个人独资企业
+- `partnership` - 合伙企业
+- `individual_business` - 个体工商户
 
 ### 3. 获取客户详情
 
@@ -89,15 +215,24 @@ GET /api/customers/:id
   "data": {
     "id": 1,
     "name": "某某科技有限公司",
-    "contact": "张三",
     "phone": "13800138000",
-    "email": "contact@example.com",
     "address": "北京市朝阳区xxx",
     "tax_number": "91110000xxxxxxxx",
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-01-01T00:00:00Z",
+    "type": "limited_company",
+    "representative_id": 1,
+    "representative": {
+      "id": 1,
+      "name": "张三",
+      "phone": "13800138000"
+    },
+    "investor_list": [
+      {"id": 2, "name": "李四", "phone": "13900139000"}
+    ],
+    "service_persons": [
+      {"id": 5, "name": "王五", "phone": "13700137000"}
+    ],
+    "agreements_list": [...],
     "tasks": [],
-    "agreements": [],
     "payments": []
   }
 }
@@ -136,363 +271,89 @@ GET /api/customers/:id/payments
 
 ## 任务管理 API
 
-### 1. 获取任务列表
-
-**请求**
-```
-GET /api/tasks
-```
-
-**查询参数**
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| keyword | string | 否 | 搜索关键词（匹配标题、描述） |
-| status | string | 否 | 状态筛选 (pending/in_progress/completed) |
-| customer_id | int | 否 | 按客户筛选 |
-
-**响应示例**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "total": 5,
-    "items": [
-      {
-        "id": 1,
-        "customer_id": 1,
-        "title": "完成1月纳税申报",
-        "description": "申报增值税、企业所得税",
-        "status": "pending",
-        "due_date": "2024-01-15T00:00:00Z",
-        "completed_at": null,
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z",
-        "customer": {
-          "id": 1,
-          "name": "某某科技有限公司"
-        }
-      }
-    ]
-  }
-}
-```
-
-### 2. 创建任务
-
-**请求**
-```
-POST /api/tasks
-Content-Type: application/json
-```
-
-**请求体**
-```json
-{
-  "customer_id": 1,
-  "title": "完成1月纳税申报",
-  "description": "申报增值税、企业所得税",
-  "status": "pending",
-  "due_date": "2024-01-15T00:00:00Z"
-}
-```
-
-### 3. 获取任务详情
-
-**请求**
-```
-GET /api/tasks/:id
-```
-
-### 4. 更新任务
-
-**请求**
-```
-PUT /api/tasks/:id
-Content-Type: application/json
-```
-
-**注意**: 当状态更新为 `completed` 时，系统会自动设置 `completed_at` 时间。
-
-### 5. 删除任务
-
-**请求**
-```
-DELETE /api/tasks/:id
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/tasks | 获取任务列表 |
+| POST | /api/tasks | 创建任务 |
+| GET | /api/tasks/:id | 获取任务详情 |
+| PUT | /api/tasks/:id | 更新任务 |
+| DELETE | /api/tasks/:id | 删除任务 |
 
 ---
 
 ## 协议管理 API
 
-### 1. 获取协议列表
-
-**请求**
-```
-GET /api/agreements
-```
-
-**查询参数**
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| keyword | string | 否 | 搜索协议编号 |
-| status | string | 否 | 状态筛选 (active/expired/cancelled) |
-| customer_id | int | 否 | 按客户筛选 |
-
-**响应示例**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "total": 3,
-    "items": [
-      {
-        "id": 1,
-        "customer_id": 1,
-        "agreement_number": "AGR2024001",
-        "start_date": "2024-01-01T00:00:00Z",
-        "end_date": "2024-12-31T00:00:00Z",
-        "fee_type": "月度",
-        "amount": 500.00,
-        "status": "active",
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z",
-        "customer": {
-          "id": 1,
-          "name": "某某科技有限公司"
-        }
-      }
-    ]
-  }
-}
-```
-
-### 2. 创建协议
-
-**请求**
-```
-POST /api/agreements
-Content-Type: application/json
-```
-
-**请求体**
-```json
-{
-  "customer_id": 1,
-  "agreement_number": "AGR2024001",
-  "start_date": "2024-01-01T00:00:00Z",
-  "end_date": "2024-12-31T00:00:00Z",
-  "fee_type": "月度",
-  "amount": 500.00,
-  "status": "active"
-}
-```
-
-### 3. 获取协议详情
-
-**请求**
-```
-GET /api/agreements/:id
-```
-
-### 4. 更新协议
-
-**请求**
-```
-PUT /api/agreements/:id
-Content-Type: application/json
-```
-
-### 5. 删除协议
-
-**请求**
-```
-DELETE /api/agreements/:id
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/agreements | 获取协议列表 |
+| POST | /api/agreements | 创建协议 |
+| GET | /api/agreements/:id | 获取协议详情 |
+| PUT | /api/agreements/:id | 更新协议 |
+| DELETE | /api/agreements/:id | 删除协议 |
 
 ---
 
 ## 收款管理 API
 
-### 1. 获取收款记录列表
-
-**请求**
-```
-GET /api/payments
-```
-
-**查询参数**
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| customer_id | int | 否 | 按客户筛选 |
-| start_date | string | 否 | 开始日期 (格式: 2024-01-01) |
-| end_date | string | 否 | 结束日期 (格式: 2024-12-31) |
-
-**响应示例**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "total": 12,
-    "items": [
-      {
-        "id": 1,
-        "customer_id": 1,
-        "agreement_id": 1,
-        "amount": 500.00,
-        "payment_date": "2024-01-05T00:00:00Z",
-        "payment_method": "转账",
-        "period": "2024-01",
-        "remark": "1月代理记账服务费",
-        "created_at": "2024-01-05T00:00:00Z",
-        "updated_at": "2024-01-05T00:00:00Z",
-        "customer": {
-          "id": 1,
-          "name": "某某科技有限公司"
-        },
-        "agreement": {
-          "id": 1,
-          "agreement_number": "AGR2024001"
-        }
-      }
-    ]
-  }
-}
-```
-
-### 2. 创建收款记录
-
-**请求**
-```
-POST /api/payments
-Content-Type: application/json
-```
-
-**请求体**
-```json
-{
-  "customer_id": 1,
-  "agreement_id": 1,
-  "amount": 500.00,
-  "payment_date": "2024-01-05T00:00:00Z",
-  "payment_method": "转账",
-  "period": "2024-01",
-  "remark": "1月代理记账服务费"
-}
-```
-
-### 3. 获取收款记录详情
-
-**请求**
-```
-GET /api/payments/:id
-```
-
-### 4. 更新收款记录
-
-**请求**
-```
-PUT /api/payments/:id
-Content-Type: application/json
-```
-
-### 5. 删除收款记录
-
-**请求**
-```
-DELETE /api/payments/:id
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/payments | 获取收款记录 |
+| POST | /api/payments | 创建收款记录 |
+| GET | /api/payments/:id | 获取收款详情 |
+| PUT | /api/payments/:id | 更新收款记录 |
+| DELETE | /api/payments/:id | 删除收款记录 |
 
 ---
 
 ## 统计分析 API
 
-### 1. 获取首页概览统计
-
-**请求**
-```
-GET /api/statistics/overview
-```
-
-**响应示例**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "customer_count": 25,
-    "pending_task_count": 8,
-    "active_agreement_count": 20,
-    "monthly_payment": 12500.00,
-    "yearly_payment": 150000.00
-  }
-}
-```
-
-### 2. 获取任务统计
-
-**请求**
-```
-GET /api/statistics/tasks
-```
-
-**响应示例**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "pending": 5,
-    "in_progress": 3,
-    "completed": 42
-  }
-}
-```
-
-### 3. 获取收款统计
-
-**请求**
-```
-GET /api/statistics/payments
-```
-
-**查询参数**
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| start_date | string | 否 | 开始日期 (格式: 2024-01-01) |
-| end_date | string | 否 | 结束日期 (格式: 2024-12-31) |
-
-**响应示例**
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {
-    "total_amount": 12500.00,
-    "count": 25
-  }
-}
-```
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/statistics/overview | 首页概览统计 |
+| GET | /api/statistics/tasks | 任务统计 |
+| GET | /api/statistics/payments | 收款统计 |
 
 ---
 
-## 运行项目
+## 数据模型
 
-```bash
-# 启动服务
-go run main.go
+### Person (人员)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | uint | 主键 |
+| type | string | 人员类型 |
+| name | string | 姓名 |
+| phone | string | 电话 |
+| id_card | string | 身份证号（唯一） |
+| password | string | 登录密码 |
+| representative_customer_ids | string | 担任法人的企业ID（逗号分隔） |
+| investor_customer_ids | string | 持股的企业ID（逗号分隔） |
+| service_customer_ids | string | 服务的企业ID（逗号分隔） |
 
-# 服务运行在 http://localhost:8080
+### Customer (客户)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | uint | 主键 |
+| name | string | 公司名称 |
+| phone | string | 联系电话 |
+| address | string | 地址 |
+| tax_number | string | 税号 |
+| type | string | 客户类型 |
+| representative_id | uint | 法定代表人ID |
+| investors | json | 投资人JSON数组 |
+| service_person_ids | string | 服务人员ID（逗号分隔） |
+| agreement_ids | string | 代理协议ID（逗号分隔） |
+| registered_capital | float64 | 注册资本 |
+
+**investors JSON格式**
+```json
+[
+  {
+    "person_id": 1,
+    "share_ratio": 25.5,
+    "investment_records": [
+      {"date": "2024-01-01", "amount": 500000}
+    ]
+  }
+]
 ```
-
-## 数据库
-
-数据库文件位于 `database/erp.db`，可以使用 SQLite 客户端工具查看数据。
-
-## 后期迁移到MySQL
-
-1. 修改 `config/database.go` 中的驱动和DSN
-2. 更改 `go.mod` 中的依赖（使用 `gorm.io/driver/mysql`）
-3. 重新运行自动迁移即可
