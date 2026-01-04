@@ -1,0 +1,36 @@
+# 编译生成的二进制文件
+erp
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 数据库文件
+database/*.db
+database/*.db-shm
+database/*.db-wal
+
+# 测试文件
+*.test
+
+# 输出目录
+bin/
+dist/
+
+# 依赖工具
+vendor/
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
