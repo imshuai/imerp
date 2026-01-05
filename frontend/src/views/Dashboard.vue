@@ -2,7 +2,7 @@
   <div class="dashboard">
     <el-row :gutter="20">
       <el-col :span="6" v-for="stat in stats" :key="stat.title">
-        <el-card class="stat-card">
+        <el-card class="stat-card" @click="handleStatClick(stat)">
           <div class="stat-content">
             <div class="stat-icon" :style="{ backgroundColor: stat.color }">
               <el-icon :size="32" :color="stat.iconColor">
@@ -82,14 +82,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getOverview, getTaskStats, getPaymentStats } from '@/api/statistics'
 import type { TaskStats, PaymentStats } from '@/api/statistics'
 
+const router = useRouter()
+
 const stats = ref([
-  { title: '客户总数', value: 0, icon: 'OfficeBuilding', color: '#ecf5ff', iconColor: '#409EFF' },
-  { title: '待办任务', value: 0, icon: 'List', color: '#fef0f0', iconColor: '#F56C6C' },
-  { title: '有效协议', value: 0, icon: 'Document', color: '#f0f9ff', iconColor: '#67C23A' },
-  { title: '本月收款', value: '¥0', icon: 'Money', color: '#fdf6ec', iconColor: '#E6A23C' }
+  { title: '客户总数', value: 0, icon: 'OfficeBuilding', color: '#ecf5ff', iconColor: '#409EFF', route: '/customers' },
+  { title: '待办任务', value: 0, icon: 'List', color: '#fef0f0', iconColor: '#F56C6C', route: '/tasks' },
+  { title: '有效协议', value: 0, icon: 'Document', color: '#f0f9ff', iconColor: '#67C23A', route: '/agreements' },
+  { title: '本月收款', value: '¥0', icon: 'Money', color: '#fdf6ec', iconColor: '#E6A23C', route: '/payments' }
 ])
 
 const taskStats = ref<TaskStats | null>(null)
@@ -107,6 +110,12 @@ const loadData = async () => {
     paymentStats.value = await getPaymentStats()
   } catch (error) {
     console.error('加载统计数据失败:', error)
+  }
+}
+
+const handleStatClick = (stat: any) => {
+  if (stat.route) {
+    router.push(stat.route)
   }
 }
 
