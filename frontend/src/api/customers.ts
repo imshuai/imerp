@@ -25,6 +25,12 @@ export interface Customer {
   service_person_ids?: string
   agreement_ids?: string
   registered_capital?: number
+  license_registration_date?: string  // 执照登记日
+  tax_registration_date?: string      // 税务登记日
+  tax_office?: string                 // 税务所
+  tax_administrator?: string          // 税务管理员
+  tax_administrator_phone?: string    // 税务管理员联系电话
+  taxpayer_type?: string              // 纳税人类型（一般纳税人/小规模纳税人）
   created_at: string
   updated_at: string
   // 关联数据

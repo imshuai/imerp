@@ -69,6 +69,25 @@
             {{ row.registered_capital ? row.registered_capital.toLocaleString() + ' 元' : '-' }}
           </template>
         </el-table-column>
+        <el-table-column prop="license_registration_date" label="执照登记日" width="120">
+          <template #default="{ row }">
+            {{ row.license_registration_date || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="tax_registration_date" label="税务登记日" width="120">
+          <template #default="{ row }">
+            {{ row.tax_registration_date || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="tax_office" label="税务所" width="150" show-overflow-tooltip />
+        <el-table-column prop="tax_administrator" label="税务管理员" width="120" show-overflow-tooltip />
+        <el-table-column prop="tax_administrator_phone" label="税务管理员电话" width="140" />
+        <el-table-column prop="taxpayer_type" label="纳税人类型" width="130">
+          <template #default="{ row }">
+            <el-tag v-if="row.taxpayer_type" :type="row.taxpayer_type === '一般纳税人' ? 'success' : 'warning'">{{ row.taxpayer_type }}</el-tag>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
@@ -121,6 +140,30 @@
         <el-form-item label="注册资本">
           <el-input-number v-model="form.registered_capital" :min="0" style="width: 280px" />
           <span style="margin-left: 10px">元</span>
+        </el-form-item>
+
+        <!-- 税务信息 -->
+        <el-divider content-position="left">税务信息</el-divider>
+        <el-form-item label="执照登记日">
+          <el-date-picker v-model="form.license_registration_date" type="date" placeholder="请选择" value-format="YYYY-MM-DD" style="width: 280px" />
+        </el-form-item>
+        <el-form-item label="税务登记日">
+          <el-date-picker v-model="form.tax_registration_date" type="date" placeholder="请选择" value-format="YYYY-MM-DD" style="width: 280px" />
+        </el-form-item>
+        <el-form-item label="税务所">
+          <el-input v-model="form.tax_office" placeholder="请输入税务所" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="税务管理员">
+          <el-input v-model="form.tax_administrator" placeholder="请输入税务管理员" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="税务管理员联系电话">
+          <el-input v-model="form.tax_administrator_phone" placeholder="请输入联系电话" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="纳税人类型">
+          <el-select v-model="form.taxpayer_type" placeholder="请选择纳税人类型" style="width: 280px">
+            <el-option label="一般纳税人" value="一般纳税人" />
+            <el-option label="小规模纳税人" value="小规模纳税人" />
+          </el-select>
         </el-form-item>
 
         <!-- 法定代表人 -->
@@ -306,7 +349,13 @@ const form = reactive<Partial<Customer>>({
   address: '',
   tax_number: '',
   type: '有限公司',
-  registered_capital: 0
+  registered_capital: 0,
+  license_registration_date: undefined,
+  tax_registration_date: undefined,
+  tax_office: '',
+  tax_administrator: '',
+  tax_administrator_phone: '',
+  taxpayer_type: ''
 })
 
 const rules = {
@@ -457,7 +506,13 @@ const handleAdd = () => {
     address: '',
     tax_number: '',
     type: '有限公司',
-    registered_capital: 0
+    registered_capital: 0,
+    license_registration_date: undefined,
+    tax_registration_date: undefined,
+    tax_office: '',
+    tax_administrator: '',
+    tax_administrator_phone: '',
+    taxpayer_type: ''
   })
   servicePersonIds.value = []
   Object.assign(representativeForm, {
