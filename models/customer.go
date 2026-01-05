@@ -6,97 +6,54 @@ import (
 	"gorm.io/datatypes"
 )
 
-// Date 自定义日期类型，支持JSON解析YYYY-MM-DD格式
-type Date struct {
-	*time.Time
-}
-
-// Scan 实现sql.Scanner接口，用于GORM从数据库读取数据
-func (d *Date) Scan(value interface{}) error {
-	if value == nil {
-		d.Time = nil
-		return nil
-	}
-	// 处理不同类型的输入
-	switch v := value.(type) {
-	case time.Time:
-		d.Time = &v
-	case string:
-		if v == "" {
-			d.Time = nil
-			return nil
-		}
-		t, err := time.Parse("2006-01-02 15:04:05", v)
-		if err != nil {
-			t, err = time.Parse("2006-01-02", v)
-			if err != nil {
-				return err
-			}
-		}
-		d.Time = &t
-	case []byte:
-		if len(v) == 0 {
-			d.Time = nil
-			return nil
-		}
-		t, err := time.Parse("2006-01-02 15:04:05", string(v))
-		if err != nil {
-			t, err = time.Parse("2006-01-02", string(v))
-			if err != nil {
-				return err
-			}
-		}
-		d.Time = &t
-	default:
-		return nil
-	}
-	return nil
-}
-
-// Value 实现driver.Valuer接口，用于GORM将数据写入数据库
-func (d *Date) Value() (interface{}, error) {
-	if d == nil || d.Time == nil {
-		return nil, nil
-	}
-	return *d.Time, nil
-}
-
-// GormDataType 实现GormDataTypeInterface，指定GORM数据库类型
-func (d *Date) GormDataType() string {
-	return "date"
-}
+// JSONDate 日期类型，数据库存储为字符串，JSON序列化为YYYY-MM-DD格式
+type JSONDate string
 
 // UnmarshalJSON 实现json.Unmarshaler接口，解析YYYY-MM-DD格式
-func (d *Date) UnmarshalJSON(b []byte) error {
+func (d *JSONDate) UnmarshalJSON(b []byte) error {
 	var s string
 	if err := json.Unmarshal(b, &s); err != nil {
 		return err
 	}
 	if s == "" {
-		d.Time = nil
+		*d = ""
 		return nil
 	}
-	// 尝试解析YYYY-MM-DD格式
-	t, err := time.Parse("2006-01-02", s)
+	// 验证日期格式
+	_, err := time.Parse("2006-01-02", s)
 	if err != nil {
-		// 如果失败，尝试解析RFC3339格式
-		var r time.Time
-		if err := r.UnmarshalJSON(b); err != nil {
-			return err
-		}
-		d.Time = &r
-		return nil
+		return err
 	}
-	d.Time = &t
+	*d = JSONDate(s)
 	return nil
 }
 
 // MarshalJSON 实现json.Marshaler接口，输出YYYY-MM-DD格式
-func (d *Date) MarshalJSON() ([]byte, error) {
-	if d.Time == nil {
+func (d JSONDate) MarshalJSON() ([]byte, error) {
+	if d == "" {
 		return json.Marshal("")
 	}
-	return json.Marshal(d.Time.Format("2006-01-02"))
+	return json.Marshal(string(d))
+}
+
+// ToTime 转换为time.Time
+func (d JSONDate) ToTime() *time.Time {
+	if d == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", string(d))
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+// JSONDateFromTime 从time.Time创建JSONDate
+func JSONDateFromTime(t *time.Time) JSONDate {
+	if t == nil {
+		return ""
+	}
+	return JSONDate(t.Format("2006-01-02"))
 }
 
 // CustomerType 客户类型
@@ -111,9 +68,9 @@ const (
 
 // InvestorInfo 投资人信息（JSON结构）
 type InvestorInfo struct {
-	PersonID          uint              `json:"person_id"`
-	ShareRatio        float64           `json:"share_ratio"`         // 持股比例
-	InvestmentRecords []InvestmentRecord `json:"investment_records,omitempty"` // 出资记录（可选）
+	PersonID          uint                `json:"person_id"`
+	ShareRatio        float64             `json:"share_ratio"`         // 持股比例
+	InvestmentRecords []InvestmentRecord  `json:"investment_records,omitempty"` // 出资记录（可选）
 }
 
 // InvestmentRecord 出资记录
@@ -135,8 +92,8 @@ type Customer struct {
 	ServicePersonIDs        string        `json:"service_person_ids"`  // 服务人员ID，逗号分隔: "5,6"
 	AgreementIDs            string        `json:"agreement_ids"`       // 代理协议ID，逗号分隔: "1,3,5"
 	RegisteredCapital       float64       `json:"registered_capital"`   // 注册资本
-	LicenseRegistrationDate  *Date         `json:"license_registration_date" gorm:"type:date"`   // 执照登记日
-	TaxRegistrationDate      *Date         `json:"tax_registration_date" gorm:"type:date"`       // 税务登记日
+	LicenseRegistrationDate  JSONDate     `json:"license_registration_date" gorm:"type:varchar(10)"`   // 执照登记日
+	TaxRegistrationDate      JSONDate     `json:"tax_registration_date" gorm:"type:varchar(10)"`       // 税务登记日
 	TaxOffice                string        `json:"tax_office"`                  // 税务所
 	TaxAdministrator         string        `json:"tax_administrator"`           // 税务管理员
 	TaxAdministratorPhone    string        `json:"tax_administrator_phone"`     // 税务管理员联系电话
