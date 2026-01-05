@@ -26,6 +26,9 @@ func CreateCustomer(c *gin.Context) {
 	// 同步更新Person表的关联字段
 	syncPersonRelations(&customer)
 
+	// 加载关联数据
+	loadCustomerRelations(&customer)
+
 	SuccessResponse(c, customer)
 }
 
