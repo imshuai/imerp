@@ -6,6 +6,7 @@ require (
 	github.com/gin-gonic/gin v1.11.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/xuri/excelize/v2 v2.10.0
+	go.uber.org/zap v1.27.1
 	gorm.io/datatypes v1.2.7
 	gorm.io/gorm v1.31.1
 )
@@ -48,6 +49,7 @@ require (
 	github.com/xuri/efp v0.0.1 // indirect
 	github.com/xuri/nfp v0.0.2-0.20250530014748-2ddeb826f9a9 // indirect
 	go.uber.org/mock v0.6.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
 	golang.org/x/exp v0.0.0-20251219203646-944ab1f22d93 // indirect

@@ -5,7 +5,66 @@ import (
 	"erp/config"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
+
+// SetupGinEngine 创建并配置Gin引擎
+func SetupGinEngine(env string) *gin.Engine {
+	// 设置Gin运行模式
+	if env == "production" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	r := gin.New()
+
+	// 自定义日志中间件 - 使用结构化日志
+	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		// 在开发环境使用彩色日志，生产环境使用JSON格式
+		if env == "production" {
+			// JSON格式日志
+			config.Info("HTTP Request",
+				zap.String("method", param.Method),
+				zap.String("path", param.Path),
+				zap.Int("status", param.StatusCode),
+				zap.Duration("latency", param.Latency),
+				zap.String("client_ip", param.ClientIP),
+				zap.String("error", param.ErrorMessage),
+			)
+		}
+		// 开发环境返回空字符串，gin会使用默认的格式化输出
+		return ""
+	}))
+
+	// 恢复中间件 - 捕获panic并记录日志
+	r.Use(gin.CustomRecovery(func(c *gin.Context, recovered interface{}) {
+		config.Error("Panic recovered",
+			zap.String("path", c.Request.URL.Path),
+			zap.String("method", c.Request.Method),
+			zap.Any("error", recovered),
+		)
+		c.JSON(500, gin.H{"code": 1, "message": "Internal Server Error"})
+	}))
+
+	// CORS中间件
+	r.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	// 设置路由
+	SetupRoutes(r)
+
+	return r
+}
 
 // SetupRoutes 配置所有路由
 func SetupRoutes(r *gin.Engine) {
