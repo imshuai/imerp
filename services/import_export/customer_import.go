@@ -86,12 +86,18 @@ func (s *CustomerImportService) ImportCustomersFromExcel(filePath string, strate
 
 // CustomerRowData 客户行数据
 type CustomerRowData struct {
-	Name              string
-	Phone             string
-	Address           string
-	TaxNumber         string
-	CustomerType      string
-	RegisteredCapital float64
+	Name                  string
+	Phone                 string
+	Address               string
+	TaxNumber             string
+	CustomerType          string
+	RegisteredCapital     float64
+	LicenseRegistrationDate string // 执照登记日
+	TaxRegistrationDate     string // 税务登记日
+	TaxOffice               string // 税务所
+	TaxAdministrator        string // 税务管理员
+	TaxAdministratorPhone   string // 税务管理员联系电话
+	TaxpayerType            string // 纳税人类型（一般纳税人/小规模纳税人）
 	RepresentativeName   string
 	RepresentativeIDCard string
 	InvestorsInfo      string // 格式: 姓名:身份证号:持股比例;...
@@ -125,16 +131,22 @@ func (s *CustomerImportService) parseCustomerRow(row []string, colIndex map[stri
 	}
 
 	data := &CustomerRowData{
-		Name:               getCell("公司名称"),
-		Phone:              getCell("联系电话"),
-		Address:            getCell("地址"),
-		TaxNumber:          getCell("税号"),
-		CustomerType:       getCell("客户类型"),
-		RepresentativeName: getCell("法定代表人姓名"),
+		Name:                 getCell("公司名称"),
+		Phone:                getCell("联系电话"),
+		Address:              getCell("地址"),
+		TaxNumber:            getCell("税号"),
+		CustomerType:         getCell("客户类型"),
+		LicenseRegistrationDate: getCell("执照登记日"),
+		TaxRegistrationDate:     getCell("税务登记日"),
+		TaxOffice:               getCell("税务所"),
+		TaxAdministrator:        getCell("税务管理员"),
+		TaxAdministratorPhone:   getCell("税务管理员联系电话"),
+		TaxpayerType:            getCell("纳税人类型"),
+		RepresentativeName:  getCell("法定代表人姓名"),
 		RepresentativeIDCard: getCell("法定代表人身份证"),
-		InvestorsInfo:      getCell("投资人信息"),
-		ServicePeopleInfo:  getCell("服务人员信息"),
-		AgreementsInfo:     getCell("协议信息"),
+		InvestorsInfo:       getCell("投资人信息"),
+		ServicePeopleInfo:   getCell("服务人员信息"),
+		AgreementsInfo:      getCell("协议信息"),
 	}
 
 	// 解析注册资本
@@ -174,6 +186,24 @@ func (s *CustomerImportService) parseCustomerRow(row []string, colIndex map[stri
 		}
 	}
 
+	// 验证纳税人类型枚举值（如果填写了的话）
+	if data.TaxpayerType != "" {
+		validTaxpayerTypes := []string{"一般纳税人", "小规模纳税人"}
+		validTaxpayerType := false
+		for _, vt := range validTaxpayerTypes {
+			if data.TaxpayerType == vt {
+				validTaxpayerType = true
+				break
+			}
+		}
+		if !validTaxpayerType {
+			return nil, &ImportError{
+				Row: rowNum, Column: "纳税人类型",
+				Message: fmt.Sprintf("纳税人类型必须是以下之一: %s", strings.Join(validTaxpayerTypes, "、")),
+			}
+		}
+	}
+
 	return data, nil
 }
 
@@ -204,11 +234,17 @@ func (s *CustomerImportService) importCustomer(data *CustomerRowData, strategy I
 			err := tx.Table("customers").
 				Where("tax_number = ?", data.TaxNumber).
 				Updates(map[string]interface{}{
-					"name":                data.Name,
-					"phone":               data.Phone,
-					"address":             data.Address,
-					"type":                data.CustomerType,
-					"registered_capital":  data.RegisteredCapital,
+					"name":                     data.Name,
+					"phone":                    data.Phone,
+					"address":                  data.Address,
+					"type":                     data.CustomerType,
+					"registered_capital":       data.RegisteredCapital,
+					"license_registration_date": data.LicenseRegistrationDate,
+					"tax_registration_date":     data.TaxRegistrationDate,
+					"tax_office":                data.TaxOffice,
+					"tax_administrator":         data.TaxAdministrator,
+					"tax_administrator_phone":   data.TaxAdministratorPhone,
+					"taxpayer_type":             data.TaxpayerType,
 				}).Error
 			if err != nil {
 				tx.Rollback()
@@ -236,14 +272,20 @@ func (s *CustomerImportService) importCustomer(data *CustomerRowData, strategy I
 	// 创建新客户记录
 	if customerID == 0 {
 		err := tx.Table("customers").Create(map[string]interface{}{
-			"name":               data.Name,
-			"phone":              data.Phone,
-			"address":            data.Address,
-			"tax_number":         data.TaxNumber,
-			"type":               data.CustomerType,
-			"registered_capital": data.RegisteredCapital,
-			"representative_id":  nil,
-			"investor_ids":       "",
+			"name":                       data.Name,
+			"phone":                      data.Phone,
+			"address":                    data.Address,
+			"tax_number":                 data.TaxNumber,
+			"type":                       data.CustomerType,
+			"registered_capital":         data.RegisteredCapital,
+			"license_registration_date":  data.LicenseRegistrationDate,
+			"tax_registration_date":      data.TaxRegistrationDate,
+			"tax_office":                 data.TaxOffice,
+			"tax_administrator":          data.TaxAdministrator,
+			"tax_administrator_phone":    data.TaxAdministratorPhone,
+			"taxpayer_type":              data.TaxpayerType,
+			"representative_id":          nil,
+			"investor_ids":               "",
 		}).Error
 		if err != nil {
 			tx.Rollback()

@@ -40,9 +40,15 @@ type Customer struct {
 	Investors         datatypes.JSON `json:"investors"`           // 投资人JSON数组
 	ServicePersonIDs  string        `json:"service_person_ids"`  // 服务人员ID，逗号分隔: "5,6"
 	AgreementIDs      string        `json:"agreement_ids"`       // 代理协议ID，逗号分隔: "1,3,5"
-	RegisteredCapital float64      `json:"registered_capital"`   // 注册资本
-	CreatedAt         time.Time     `json:"created_at"`
-	UpdatedAt         time.Time     `json:"updated_at"`
+	RegisteredCapital     float64      `json:"registered_capital"`     // 注册资本
+	LicenseRegistrationDate *time.Time   `json:"license_registration_date"`   // 执照登记日
+	TaxRegistrationDate     *time.Time   `json:"tax_registration_date"`       // 税务登记日
+	TaxOffice               string       `json:"tax_office"`                  // 税务所
+	TaxAdministrator        string       `json:"tax_administrator"`           // 税务管理员
+	TaxAdministratorPhone   string       `json:"tax_administrator_phone"`     // 税务管理员联系电话
+	TaxpayerType            string       `json:"taxpayer_type"`               // 纳税人类型（一般纳税人/小规模纳税人）
+	CreatedAt              time.Time     `json:"created_at"`
+	UpdatedAt              time.Time     `json:"updated_at"`
 
 	// 关联（通过查询加载，不存储在数据库）
 	Representative *Person     `json:"representative,omitempty" gorm:"-"`
