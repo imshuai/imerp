@@ -58,7 +58,7 @@ func (d Date) Value() (interface{}, error) {
 	if d.Time == nil {
 		return nil, nil
 	}
-	return d.Time, nil
+	return *d.Time, nil
 }
 
 // UnmarshalJSON 实现json.Unmarshaler接口，解析YYYY-MM-DD格式
