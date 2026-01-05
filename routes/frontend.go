@@ -50,8 +50,13 @@ func SetupFrontendRoutes(r *gin.Engine) {
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 
-	// SPA fallback - 所有其他路由返回 index.html
-	r.GET("/*filepath", func(c *gin.Context) {
+	// SPA fallback - 使用 NoRoute 处理所有其他路由
+	r.NoRoute(func(c *gin.Context) {
+		// 跳过API路由
+		if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+			c.JSON(404, gin.H{"code": 1, "message": "Not Found"})
+			return
+		}
 		c.Request.URL.Path = "/index.html"
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
