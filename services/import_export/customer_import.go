@@ -347,7 +347,7 @@ func (s *CustomerImportService) importCustomer(data *CustomerRowData, strategy I
 			}
 
 			// 创建协议
-			err = tx.Table("agreements").Create(map[string]interface{}{
+			err := tx.Table("agreements").Create(map[string]interface{}{
 				"customer_id":   customerID,
 				"start_date":    agreement.StartDate,
 				"end_date":      agreement.EndDate,
@@ -437,7 +437,7 @@ func (s *CustomerImportService) parseInvestorsInfo(info string, rowNum int) ([]I
 	var investors []InvestorInfo
 	parts := strings.Split(info, ";")
 
-	for i, part := range parts {
+	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue

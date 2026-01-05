@@ -42,17 +42,17 @@ func SetupFrontendRoutes(r *gin.Engine) {
 	}
 
 	// 创建HTTP文件系统服务器
-	httpFS := http.FS(distFS)
+	fileServer := http.FileServer(http.FS(distFS))
 
 	// 静态资源服务（处理 /assets 路径）
 	r.GET("/assets/*filepath", func(c *gin.Context) {
 		c.Request.URL.Path = c.Request.URL.Path[1:] // 去掉前导 /
-		httpFS.ServeHTTP(c.Writer, c.Request)
+		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 
 	// SPA fallback - 所有其他路由返回 index.html
 	r.GET("/*filepath", func(c *gin.Context) {
 		c.Request.URL.Path = "/index.html"
-		httpFS.ServeHTTP(c.Writer, c.Request)
+		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 }
