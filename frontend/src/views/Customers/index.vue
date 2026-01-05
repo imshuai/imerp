@@ -288,7 +288,7 @@
         <el-descriptions-item label="投资人" :span="2">
           <div v-if="customerInvestors.length > 0">
             <div v-for="(inv, idx) in customerInvestors" :key="idx" style="margin-bottom: 8px;">
-              <el-tag>{{ inv.name }}</el-tag>
+              <span style="font-weight: 500;">{{ inv.name }}</span>
               <span style="margin-left: 10px;">持股比例: {{ inv.share_ratio }}%</span>
               <div v-if="inv.investment_records && inv.investment_records.length > 0" style="margin-left: 20px; font-size: 12px; color: #666;">
                 出资记录:
