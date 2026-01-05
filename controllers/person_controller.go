@@ -35,14 +35,14 @@ func GetPeople(c *gin.Context) {
 	var total int64
 
 	// 获取查询参数
-	personType := c.Query("type")
+	isServicePerson := c.Query("is_service_person")
 	keyword := c.Query("keyword")
 
 	query := config.DB.Model(&models.Person{})
 
-	// 按类型筛选
-	if personType != "" {
-		query = query.Where("type = ?", personType)
+	// 按是否服务人员筛选
+	if isServicePerson != "" {
+		query = query.Where("is_service_person = ?", isServicePerson == "true" || isServicePerson == "1")
 	}
 
 	// 搜索功能（姓名、电话、身份证）

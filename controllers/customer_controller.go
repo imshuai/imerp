@@ -53,8 +53,7 @@ func GetCustomers(c *gin.Context) {
 		// 先查找符合条件的人员ID
 		var personIDs []uint
 		config.DB.Model(&models.Person{}).
-			Where("type IN ? AND (name LIKE ? OR phone LIKE ? OR id_card LIKE ?)",
-				[]models.PersonType{models.PersonTypeRepresentative, models.PersonTypeMixed},
+			Where("name LIKE ? OR phone LIKE ? OR id_card LIKE ?",
 				"%"+representative+"%", "%"+representative+"%", "%"+representative+"%").
 			Pluck("id", &personIDs)
 
@@ -79,11 +78,10 @@ func GetCustomers(c *gin.Context) {
 				WHERE json_valid(investors)
 				AND CAST(json_extract(value, '$.person_id') AS INTEGER) IN (
 					SELECT id FROM people
-					WHERE type IN ? AND (name LIKE ? OR phone LIKE ? OR id_card LIKE ?)
+					WHERE name LIKE ? OR phone LIKE ? OR id_card LIKE ?
 				)
 			)
-		`, []models.PersonType{models.PersonTypeInvestor, models.PersonTypeMixed},
-			"%"+investor+"%", "%"+investor+"%", "%"+investor+"%").Scan(&customerIDs)
+		`, "%"+investor+"%", "%"+investor+"%", "%"+investor+"%").Scan(&customerIDs)
 
 		if len(customerIDs) > 0 {
 			query = query.Where("id IN ?", customerIDs)
@@ -98,9 +96,8 @@ func GetCustomers(c *gin.Context) {
 		// 先查找符合条件的人员ID
 		var personIDs []uint
 		config.DB.Model(&models.Person{}).
-			Where("type IN ? AND (name LIKE ? OR phone LIKE ?)",
-				[]models.PersonType{models.PersonTypeServicePerson, models.PersonTypeMixed},
-				"%"+servicePerson+"%", "%"+servicePerson+"%").
+			Where("is_service_person = ? AND (name LIKE ? OR phone LIKE ?)",
+				true, "%"+servicePerson+"%", "%"+servicePerson+"%").
 			Pluck("id", &personIDs)
 
 		if len(personIDs) > 0 {
@@ -124,10 +121,15 @@ func GetCustomers(c *gin.Context) {
 	// 获取总数
 	query.Count(&total)
 
-	// 获取列表
+	// 获取列表（关联数据通过loadCustomerRelations手动加载）
 	if err := query.Find(&customers).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to fetch customers: "+err.Error())
 		return
+	}
+
+	// 为每个客户加载关联的服务人员信息
+	for i := range customers {
+		loadCustomerRelations(&customers[i])
 	}
 
 	SuccessPaginatedResponse(c, total, customers)

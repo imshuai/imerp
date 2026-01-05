@@ -31,7 +31,7 @@ func (s *TemplateService) GeneratePeopleTemplate() ([]byte, string, error) {
 
 	// 设置表头
 	headers := []string{
-		"姓名", "类型", "电话", "身份证号", "登录密码",
+		"姓名", "是否服务人员", "电话", "身份证号", "登录密码",
 	}
 	if err := s.excelService.SetSheetHeader(sheetName, headers); err != nil {
 		return nil, "", fmt.Errorf("设置表头失败: %w", err)
@@ -39,10 +39,10 @@ func (s *TemplateService) GeneratePeopleTemplate() ([]byte, string, error) {
 
 	// 添加示例数据
 	sampleData := [][]interface{}{
-		{"张三", "法定代表人", "13800138000", "110101199001011234", "abc123"},
-		{"李四", "投资人", "13900139000", "110101199002021234", "def456"},
-		{"王五", "服务人员", "13700137000", "110101199003031234", "ghi789"},
-		{"赵六", "混合角色", "13600136000", "110101199004041234", "jkl012"},
+		{"张三", "是", "13800138000", "110101199001011234", "abc123"},
+		{"李四", "否", "13900139000", "110101199002021234", "def456"},
+		{"王五", "是", "13700137000", "110101199003031234", "ghi789"},
+		{"赵六", "否", "13600136000", "110101199004041234", "jkl012"},
 	}
 	if err := s.excelService.WriteRows(sheetName, 2, sampleData); err != nil {
 		return nil, "", fmt.Errorf("写入示例数据失败: %w", err)
