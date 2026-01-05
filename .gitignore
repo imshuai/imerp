@@ -1,5 +1,6 @@
 # 编译生成的二进制文件
 erp
+erp-*
 *.exe
 *.exe~
 *.dll
