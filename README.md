@@ -1,14 +1,24 @@
 # 代理记账ERP系统
 
-基于Go语言开发的代理记账ERP系统后端API，支持客户管理、人员管理、任务管理、协议管理和收款管理等功能。
+基于Go语言和Vue 3开发的代理记账ERP系统，支持客户管理、人员管理、任务管理、协议管理和收款管理等功能。采用前后端分离架构，支持单文件部署。
 
 ## 技术栈
 
+### 后端
 - **语言**: Go 1.21+
 - **Web框架**: [Gin](https://github.com/gin-gonic/gin)
 - **ORM**: [GORM](https://github.com/go-gorm/gorm)
 - **数据库**: SQLite (支持迁移到MySQL)
 - **Excel处理**: [excelize](https://github.com/xuri/excelize)
+
+### 前端
+- **框架**: [Vue 3](https://vuejs.org/)
+- **构建工具**: [Vite](https://vitejs.dev/)
+- **UI组件**: [Element Plus](https://element-plus.org/)
+- **HTTP客户端**: [Axios](https://axios-http.com/)
+- **路由**: [Vue Router](https://router.vuejs.org/)
+- **状态管理**: [Pinia](https://pinia.vuejs.org/)
+- **语言**: TypeScript
 
 ## 功能特性
 
@@ -44,16 +54,25 @@
 ### 环境要求
 
 - Go 1.21 或更高版本
+- Node.js 18+ 和 npm（开发前端时需要）
 
 ### 安装运行
+
+#### 完整安装（包含前端）
 
 ```bash
 # 克隆项目
 git clone http://192.168.3.20/hashqq/erp.git
 cd erp
 
-# 安装依赖
+# 安装后端依赖
 go mod download
+
+# 安装前端依赖并构建
+cd frontend
+npm install
+npm run build
+cd ..
 
 # 运行服务
 go run main.go
@@ -61,11 +80,64 @@ go run main.go
 
 服务启动后监听在 `http://localhost:8080`
 
-### 编译
+#### 仅运行后端（已包含预构建的前端）
 
 ```bash
+# 克隆项目
+git clone http://192.168.3.20/hashqq/erp.git
+cd erp
+
+# 安装后端依赖
+go mod download
+
+# 运行服务
+go run main.go
+```
+
+#### 前端开发模式
+
+```bash
+# 在 frontend 目录下运行开发服务器
+cd frontend
+npm run dev
+
+# 在另一个终端运行后端
+cd ..
+go run main.go
+```
+
+前端开发服务器运行在 `http://localhost:5173`，并自动代理API请求到后端。
+
+### 编译
+
+#### 生产构建（单文件部署）
+
+```bash
+# 1. 构建前端
+cd frontend
+npm run build
+cd ..
+
+# 2. 编译Go程序（前端资源已嵌入）
 go build -o erp main.go
+
+# 3. 运行
 ./erp
+```
+
+编译后的 `erp` 可执行文件已包含所有前端资源，可以直接部署到服务器运行。
+
+#### 交叉编译
+
+```bash
+# Linux ARM64
+GOOS=linux GOARCH=arm64 go build -o erp-linux-arm64 main.go
+
+# Windows
+GOOS=windows GOARCH=amd64 go build -o erp.exe main.go
+
+# macOS
+GOOS=darwin GOARCH=amd64 go build -o erp-macos main.go
 ```
 
 ## 项目结构
@@ -92,7 +164,8 @@ erp/
 │   ├── statistics_controller.go # 统计控制器
 │   └── import_export_controller.go # 导入导出控制器
 ├── routes/                 # 路由
-│   └── routes.go
+│   ├── routes.go           # API路由
+│   └── frontend.go         # 前端路由
 ├── services/               # 服务层
 │   └── import_export/      # 导入导出服务
 │       ├── excel_service.go      # Excel基础服务
@@ -102,6 +175,22 @@ erp/
 │       └── export_service.go     # 导出服务
 ├── utils/                  # 工具函数
 │   └── excel_utils.go      # Excel工具函数
+├── embedded/               # 嵌入的静态资源
+│   ├── static.go           # Go embed 文件
+│   └── dist/               # 前端构建产物（git忽略）
+├── frontend/               # 前端源码
+│   ├── src/
+│   │   ├── api/            # API调用封装
+│   │   ├── components/     # Vue组件
+│   │   ├── views/          # 页面视图
+│   │   ├── router/         # 路由配置
+│   │   ├── App.vue
+│   │   └── main.ts
+│   ├── public/
+│   ├── index.html
+│   ├── vite.config.ts
+│   ├── package.json
+│   └── tsconfig.json
 ├── docs/                   # 文档
 │   └── api.md              # API文档
 └── database/               # 数据库文件
