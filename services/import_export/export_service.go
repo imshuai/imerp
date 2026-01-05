@@ -31,7 +31,7 @@ func (s *ExportService) ExportPeopleToExcel() ([]byte, string, error) {
 	excelService.SetActiveSheet(sheetName)
 
 	// 设置表头
-	headers := []string{"姓名", "类型", "电话", "身份证号", "登录密码"}
+	headers := []string{"姓名", "是否服务人员", "电话", "身份证号", "登录密码"}
 	if err := excelService.SetSheetHeader(sheetName, headers); err != nil {
 		return nil, "", fmt.Errorf("设置表头失败: %w", err)
 	}
@@ -39,7 +39,7 @@ func (s *ExportService) ExportPeopleToExcel() ([]byte, string, error) {
 	// 查询所有人员
 	var people []map[string]interface{}
 	err := s.db.Table("people").
-		Select("id, type, name, phone, id_card, password").
+		Select("id, is_service_person, name, phone, id_card, password").
 		Order("id ASC").
 		Find(&people).Error
 	if err != nil {
@@ -51,7 +51,7 @@ func (s *ExportService) ExportPeopleToExcel() ([]byte, string, error) {
 	for i, person := range people {
 		data[i] = []interface{}{
 			person["name"],
-			person["type"],
+			person["is_service_person"],
 			person["phone"],
 			person["id_card"],
 			person["password"],
@@ -155,7 +155,7 @@ func (s *ExportService) ExportCustomersToExcel() ([]byte, string, error) {
 		s.db.Raw(`
 			SELECT p.name
 			FROM people p
-			WHERE p.type = '服务人员'
+			WHERE p.is_service_person = 1
 			AND p.id IN (
 				SELECT CAST(value AS INTEGER)
 				FROM json_each('["' || REPLACE(p.service_customer_ids, ',', '","') || '"]')

@@ -88,16 +88,6 @@ func SetupRoutes(r *gin.Engine) {
 			people.GET("/:id/customers", controllers.GetPersonCustomers)
 		}
 
-		// 服务人员管理路由
-		servicePersonnel := api.Group("/service-personnel")
-		{
-			servicePersonnel.GET("", controllers.GetServicePersonnel)
-			servicePersonnel.POST("", controllers.CreateServicePersonnel)
-			servicePersonnel.GET("/:id", controllers.GetPerson)
-			servicePersonnel.PUT("/:id", controllers.UpdatePerson)
-			servicePersonnel.DELETE("/:id", controllers.DeletePerson)
-		}
-
 		// 客户管理路由
 		customers := api.Group("/customers")
 		{

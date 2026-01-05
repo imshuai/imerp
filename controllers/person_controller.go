@@ -35,14 +35,14 @@ func GetPeople(c *gin.Context) {
 	var total int64
 
 	// 获取查询参数
-	personType := c.Query("type")
+	isServicePerson := c.Query("is_service_person")
 	keyword := c.Query("keyword")
 
 	query := config.DB.Model(&models.Person{})
 
-	// 按类型筛选
-	if personType != "" {
-		query = query.Where("type = ?", personType)
+	// 按是否服务人员筛选
+	if isServicePerson != "" {
+		query = query.Where("is_service_person = ?", isServicePerson == "true" || isServicePerson == "1")
 	}
 
 	// 搜索功能（姓名、电话、身份证）
@@ -61,75 +61,6 @@ func GetPeople(c *gin.Context) {
 	}
 
 	SuccessPaginatedResponse(c, total, people)
-}
-
-// GetServicePersonnel 获取服务人员列表（仅服务人员类型，包含客户数量）
-func GetServicePersonnel(c *gin.Context) {
-	var people []models.Person
-	var total int64
-
-	// 获取查询参数
-	keyword := c.Query("keyword")
-
-	query := config.DB.Model(&models.Person{}).Where("type = ?", "服务人员")
-
-	// 搜索功能（姓名、电话、身份证）
-	if keyword != "" {
-		query = query.Where("name LIKE ? OR phone LIKE ? OR id_card LIKE ?",
-			"%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%")
-	}
-
-	// 获取总数
-	query.Count(&total)
-
-	// 获取列表
-	if err := query.Find(&people).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to fetch service personnel: "+err.Error())
-		return
-	}
-
-	// 构建响应数据，添加客户数量
-	type ServicePersonnelResponse struct {
-		models.Person
-		CustomerCount int `json:"customer_count"`
-	}
-
-	response := make([]ServicePersonnelResponse, len(people))
-	for i, person := range people {
-		customerCount := 0
-		if person.ServiceCustomerIDs != "" {
-			ids := StringToIDs(person.ServiceCustomerIDs)
-			customerCount = len(ids)
-		}
-		response[i] = ServicePersonnelResponse{
-			Person:        person,
-			CustomerCount: customerCount,
-		}
-	}
-
-	SuccessPaginatedResponse(c, total, response)
-}
-
-// CreateServicePersonnel 创建服务人员（默认类型为服务人员）
-func CreateServicePersonnel(c *gin.Context) {
-	var person models.Person
-	if err := c.ShouldBindJSON(&person); err != nil {
-		ErrorResponse(c, 400, "Invalid request data: "+err.Error())
-		return
-	}
-
-	// 强制设置为服务人员类型
-	person.Type = models.PersonTypeServicePerson
-
-	if err := config.DB.Create(&person).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to create service person: "+err.Error())
-		return
-	}
-
-	// 更新关联客户的ID字段
-	updatePersonCustomerIDs(&person)
-
-	SuccessResponse(c, person)
 }
 
 // GetPerson 获取人员详情

@@ -21,6 +21,7 @@ export interface Customer {
   type: CustomerType
   representative_id?: number
   investor_ids?: string
+  investors?: string  // JSON格式的投资人信息
   service_person_ids?: string
   agreement_ids?: string
   registered_capital?: number

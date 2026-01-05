@@ -93,7 +93,7 @@
             filterable
             remote
             reserve-keyword
-            placeholder="请输入客户名称搜索"
+            placeholder="请输入客户名称或税号搜索"
             :remote-method="searchCustomers"
             :loading="customerLoading"
             style="width: 100%"
@@ -101,7 +101,7 @@
             <el-option
               v-for="item in customerOptions"
               :key="item.id"
-              :label="item.name"
+              :label="`${item.name} - ${item.tax_number}`"
               :value="item.id"
             />
           </el-select>
@@ -147,6 +147,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getPayments, createPayment, updatePayment, deletePayment } from '@/api/payments'
 import { getCustomers } from '@/api/customers'
+import { debounce } from '@/utils/clipboard'
 import type { Payment } from '@/api/payments'
 import type { Customer } from '@/api/customers'
 
@@ -173,7 +174,7 @@ const pagination = reactive({
 })
 
 const form = reactive<Partial<Payment>>({
-  customer_id: 0,
+  customer_id: undefined,
   agreement_id: undefined,
   amount: 0,
   payment_date: '',
@@ -193,8 +194,8 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
-// 搜索客户
-const searchCustomers = async (query: string) => {
+// 搜索客户 - 带防抖
+const searchCustomersDebounced = debounce(async (query: string) => {
   if (!query) {
     customerOptions.value = []
     return
@@ -206,6 +207,10 @@ const searchCustomers = async (query: string) => {
   } finally {
     customerLoading.value = false
   }
+}, 300)
+
+const searchCustomers = (query: string) => {
+  searchCustomersDebounced(query)
 }
 
 const loadData = async () => {
@@ -238,7 +243,7 @@ const handleReset = () => {
 const handleAdd = () => {
   isEdit.value = false
   Object.assign(form, {
-    customer_id: 0,
+    customer_id: undefined,
     agreement_id: undefined,
     amount: 0,
     payment_date: '',

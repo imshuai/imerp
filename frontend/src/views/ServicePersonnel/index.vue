@@ -28,23 +28,23 @@
 
       <!-- 表格 -->
       <el-table :data="tableData" border stripe v-loading="loading">
-        <el-table-column prop="name" label="姓名" width="120" />
-        <el-table-column prop="phone" label="电话" width="130">
+        <el-table-column prop="name" label="姓名" min-width="120" />
+        <el-table-column prop="phone" label="电话" min-width="130">
           <template #default="{ row }">
             <el-link type="primary" @click="handleCopy(row.phone)">
               {{ row.phone }}
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="password" label="密码" width="120">
+        <el-table-column prop="password" label="密码" min-width="120">
           <template #default="{ row }">
             <el-link type="primary" @click="handleCopy(row.password)">
               {{ row.password }}
             </el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="id_card" label="身份证号" width="180" />
-        <el-table-column prop="customer_count" label="关联客户数量" width="120" />
+        <el-table-column prop="id_card" label="身份证号" min-width="180" />
+        <el-table-column prop="customer_count" label="关联客户数量" min-width="120" />
         <el-table-column label="操作" width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
@@ -77,9 +77,6 @@
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" placeholder="请输入姓名" />
         </el-form-item>
-        <el-form-item label="类型" prop="type">
-          <el-input v-model="form.type" disabled placeholder="服务人员" />
-        </el-form-item>
         <el-form-item label="电话" prop="phone">
           <el-input v-model="form.phone" placeholder="请输入电话" />
         </el-form-item>
@@ -87,7 +84,7 @@
           <el-input v-model="form.id_card" placeholder="请输入身份证号" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码" />
+          <el-input v-model="form.password" placeholder="请输入密码" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -101,12 +98,16 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { getServicePersonnel, createServicePersonnel, updateServicePersonnel, deleteServicePersonnel } from '@/api/servicePersonnel'
-import type { ServicePersonnel } from '@/api/servicePersonnel'
+import { getPeople, createPerson, updatePerson, deletePerson } from '@/api/people'
+import type { Person } from '@/api/people'
 import { smartCopy } from '@/utils/clipboard'
 
+interface ServicePersonnelWithCount extends Person {
+  customer_count: number
+}
+
 const loading = ref(false)
-const tableData = ref<ServicePersonnel[]>([])
+const tableData = ref<ServicePersonnelWithCount[]>([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
@@ -122,9 +123,8 @@ const pagination = reactive({
   total: 0
 })
 
-const form = reactive<Partial<ServicePersonnel>>({
+const form = reactive<Partial<Person>>({
   name: '',
-  type: '服务人员',
   phone: '',
   id_card: '',
   password: ''
@@ -140,10 +140,17 @@ const rules = {
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getServicePersonnel({
-      keyword: searchForm.keyword || undefined
+    const res = await getPeople({
+      keyword: searchForm.keyword || undefined,
+      is_service_person: true
     })
-    tableData.value = res.items
+    // 计算每个服务人员的客户数量
+    tableData.value = res.items.map((person: Person) => ({
+      ...person,
+      customer_count: person.service_customer_ids
+        ? person.service_customer_ids.split(',').filter(Boolean).length
+        : 0
+    }))
     pagination.total = res.total
   } catch (error) {
     console.error('加载数据失败:', error)
@@ -166,7 +173,6 @@ const handleAdd = () => {
   isEdit.value = false
   Object.assign(form, {
     name: '',
-    type: '服务人员',
     phone: '',
     id_card: '',
     password: ''
@@ -174,17 +180,17 @@ const handleAdd = () => {
   dialogVisible.value = true
 }
 
-const handleEdit = (row: ServicePersonnel) => {
+const handleEdit = (row: ServicePersonnelWithCount) => {
   isEdit.value = true
   Object.assign(form, row)
   dialogVisible.value = true
 }
 
-const handleDelete = (row: ServicePersonnel) => {
+const handleDelete = (row: ServicePersonnelWithCount) => {
   ElMessageBox.confirm('确定要删除该服务人员吗？', '提示', {
     type: 'warning'
   }).then(async () => {
-    await deleteServicePersonnel(row.id)
+    await deletePerson(row.id)
     ElMessage.success('删除成功')
     loadData()
   }).catch(() => {})
@@ -197,10 +203,10 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await updateServicePersonnel(form.id!, form)
+      await updatePerson(form.id!, form)
       ElMessage.success('更新成功')
     } else {
-      await createServicePersonnel(form)
+      await createPerson({ ...form, is_service_person: true })
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false

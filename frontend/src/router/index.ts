@@ -24,12 +24,6 @@ const router = createRouter({
           meta: { title: '首页', icon: 'Odometer' }
         },
         {
-          path: 'people',
-          name: 'People',
-          component: () => import('@/views/People/index.vue'),
-          meta: { title: '人员管理', icon: 'User' }
-        },
-        {
           path: 'service-personnel',
           name: 'ServicePersonnel',
           component: () => import('@/views/ServicePersonnel/index.vue'),

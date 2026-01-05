@@ -1,12 +1,9 @@
 import { http } from './index'
 
-// 人员类型
-export type PersonType = '法定代表人' | '投资人' | '服务人员' | '混合角色'
-
 // 人员信息
 export interface Person {
   id: number
-  type: PersonType
+  is_service_person?: boolean
   name: string
   phone: string
   id_card: string
@@ -26,7 +23,7 @@ export interface PeopleListResponse {
 
 // 获取人员列表
 export function getPeople(params?: {
-  type?: PersonType
+  is_service_person?: boolean
   keyword?: string
 }): Promise<PeopleListResponse> {
   return http.get<PeopleListResponse>('/people', { params })
