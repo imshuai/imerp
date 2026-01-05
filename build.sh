@@ -91,7 +91,7 @@ echo ""
 # Clean build artifacts if requested
 if [ "$CLEAN" = true ]; then
     echo -e "${YELLOW}Cleaning build artifacts...${NC}"
-    rm -rf frontend/dist
+    rm -rf frontend/dist embedded/dist
     rm -f erp erp.exe erp-*
     echo -e "${GREEN}Clean completed.${NC}"
     echo ""
@@ -115,7 +115,7 @@ if [ "$BUILD_FRONTEND" = true ]; then
     npm run build
     cd ..
 
-    echo -e "${GREEN}Frontend build completed: frontend/dist/${NC}"
+    echo -e "${GREEN}Frontend build completed: embedded/dist/${NC}"
     echo ""
 fi
 
@@ -126,7 +126,7 @@ if [ "$BUILD_BACKEND" = true ]; then
     echo -e "${GREEN}========================================${NC}"
 
     # Check if frontend is built
-    if [ ! -d "frontend/dist" ] && [ "$FRONTEND_ONLY" = false ]; then
+    if [ ! -d "embedded/dist" ] && [ "$FRONTEND_ONLY" = false ]; then
         echo -e "${RED}Error: Frontend not built. Please build frontend first or use -f flag.${NC}"
         exit 1
     fi
@@ -182,7 +182,7 @@ echo -e "${GREEN}Build Summary${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 if [ "$BUILD_FRONTEND" = true ]; then
-    echo -e "${GREEN}✓ Frontend: frontend/dist/${NC}"
+    echo -e "${GREEN}✓ Frontend: embedded/dist/${NC}"
 fi
 
 if [ "$BUILD_BACKEND" = true ]; then
