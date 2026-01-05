@@ -17,21 +17,17 @@ func SetupGinEngine(env string) *gin.Engine {
 
 	r := gin.New()
 
-	// 自定义日志中间件 - 使用结构化日志
+	// 自定义日志中间件 - 统一使用zap记录所有HTTP请求
 	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		// 在开发环境使用彩色日志，生产环境使用JSON格式
-		if env == "production" {
-			// JSON格式日志
-			config.Info("HTTP Request",
-				zap.String("method", param.Method),
-				zap.String("path", param.Path),
-				zap.Int("status", param.StatusCode),
-				zap.Duration("latency", param.Latency),
-				zap.String("client_ip", param.ClientIP),
-				zap.String("error", param.ErrorMessage),
-			)
-		}
-		// 开发环境返回空字符串，gin会使用默认的格式化输出
+		config.Info("HTTP Request",
+			zap.String("method", param.Method),
+			zap.String("path", param.Path),
+			zap.Int("status", param.StatusCode),
+			zap.Duration("latency", param.Latency),
+			zap.String("client_ip", param.ClientIP),
+			zap.String("user_agent", param.Request.UserAgent()),
+			zap.String("error", param.ErrorMessage),
+		)
 		return ""
 	}))
 
