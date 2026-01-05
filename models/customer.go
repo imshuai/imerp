@@ -54,11 +54,16 @@ func (d *Date) Scan(value interface{}) error {
 }
 
 // Value 实现driver.Valuer接口，用于GORM将数据写入数据库
-func (d Date) Value() (interface{}, error) {
-	if d.Time == nil {
+func (d *Date) Value() (interface{}, error) {
+	if d == nil || d.Time == nil {
 		return nil, nil
 	}
 	return *d.Time, nil
+}
+
+// GormDataType 实现GormDataTypeInterface，指定GORM数据库类型
+func (d *Date) GormDataType() string {
+	return "date"
 }
 
 // UnmarshalJSON 实现json.Unmarshaler接口，解析YYYY-MM-DD格式
