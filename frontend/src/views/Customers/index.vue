@@ -316,28 +316,6 @@
         <el-button type="primary" @click="handleEditFromDetail">编辑</el-button>
       </template>
     </el-dialog>
-
-    <!-- 人员详情弹窗 -->
-    <el-dialog v-model="personDialogVisible" title="人员详情" width="500px" @close="handlePersonDialogClose">
-      <el-form :model="personForm" label-width="100px">
-        <el-form-item label="姓名">
-          <el-input v-model="personForm.name" />
-        </el-form-item>
-        <el-form-item label="电话">
-          <el-input v-model="personForm.phone" />
-        </el-form-item>
-        <el-form-item label="身份证号">
-          <el-input v-model="personForm.id_card" />
-        </el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="personForm.password" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="personDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSavePerson">保存</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -370,7 +348,6 @@ const loading = ref(false)
 const tableData = ref<Customer[]>([])
 const dialogVisible = ref(false)
 const detailDialogVisible = ref(false)
-const personDialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
@@ -392,9 +369,6 @@ const representativeForm = reactive<Partial<Person>>({
 
 // 投资人表单列表
 const investorsForm = ref<InvestorForm[]>([])
-
-// 人员详情表单
-const personForm = reactive<Partial<Person>>({})
 
 const searchForm = reactive({
   keyword: ''
@@ -851,26 +825,6 @@ const handleDialogClose = () => {
 const handleDetailDialogClose = () => {
   currentCustomer.value = null
   customerInvestors.value = []
-}
-
-// 查看人员详情
-const handleViewPerson = (person: Person) => {
-  Object.assign(personForm, person)
-  personDialogVisible.value = true
-}
-
-// 保存人员信息
-const handleSavePerson = async () => {
-  if (personForm.id) {
-    await updatePerson(personForm.id, personForm)
-    ElMessage.success('人员信息已保存')
-    personDialogVisible.value = false
-    loadData()
-  }
-}
-
-const handlePersonDialogClose = () => {
-  Object.assign(personForm, {})
 }
 
 const handlePageChange = (page: number) => {
