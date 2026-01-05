@@ -52,8 +52,8 @@ Set-Location $SCRIPT_DIR
 # Clean build artifacts if requested
 if ($Clean) {
     Write-Host "Cleaning build artifacts..." -ForegroundColor Yellow
-    if (Test-Path "frontend\dist") {
-        Remove-Item -Recurse -Force "frontend\dist"
+    if (Test-Path "embedded\dist") {
+        Remove-Item -Recurse -Force "embedded\dist"
     }
     if (Test-Path "erp") {
         Remove-Item -Force "erp"
@@ -84,7 +84,7 @@ if ($BUILD_FRONTEND) {
     npm run build
     Set-Location ..
 
-    Write-Host "Frontend build completed: frontend\dist\" -ForegroundColor Green
+    Write-Host "Frontend build completed: embedded\dist\" -ForegroundColor Green
     Write-Host ""
 }
 
@@ -95,7 +95,7 @@ if ($BUILD_BACKEND) {
     Write-Host "========================================" -ForegroundColor Green
 
     # Check if frontend is built
-    if (-not (Test-Path "frontend\dist") -and -not $FrontendOnly) {
+    if (-not (Test-Path "embedded\dist") -and -not $FrontendOnly) {
         Write-Host "[ERROR] Frontend not built. Please build frontend first or use -FrontendOnly." -ForegroundColor Red
         exit 1
     }
@@ -158,7 +158,7 @@ Write-Host "Build Summary" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 
 if ($BUILD_FRONTEND) {
-    Write-Host "[OK] Frontend: frontend\dist\" -ForegroundColor Green
+    Write-Host "[OK] Frontend: embedded\dist\" -ForegroundColor Green
 }
 
 if ($BUILD_BACKEND) {

@@ -93,7 +93,7 @@ echo.
 REM Clean build artifacts if requested
 if "%CLEAN%"=="true" (
     echo Cleaning build artifacts...
-    if exist "frontend\dist" rmdir /s /q "frontend\dist"
+    if exist "embedded\dist" rmdir /s /q "embedded\dist"
     if exist "erp.exe" del /q "erp.exe"
     if exist "erp-*" del /q "erp-*"
     echo Clean completed.
@@ -118,7 +118,7 @@ if "%BUILD_FRONTEND%"=="true" (
     call npm run build
     cd ..
 
-    echo Frontend build completed: frontend\dist\
+    echo Frontend build completed: embedded\dist\
     echo.
 )
 
@@ -129,7 +129,7 @@ if "%BUILD_BACKEND%"=="true" (
     echo ========================================
 
     REM Check if frontend is built
-    if not exist "frontend\dist" (
+    if not exist "embedded\dist" (
         echo [ERROR] Frontend not built. Please build frontend first or use -f flag.
         exit /b 1
     )
@@ -186,7 +186,7 @@ echo Build Summary
 echo ========================================
 
 if "%BUILD_FRONTEND%"=="true" (
-    echo [OK] Frontend: frontend\dist\
+    echo [OK] Frontend: embedded\dist\
 )
 
 if "%BUILD_BACKEND%"=="true" (
