@@ -28,68 +28,47 @@
 
       <!-- 表格 -->
       <el-table :data="tableData" border stripe v-loading="loading">
-        <el-table-column prop="name" label="公司名称" width="200" />
-        <el-table-column prop="tax_number" label="税号" width="180" />
-        <!-- 法定代表人姓名（可点击查看详情） -->
-        <el-table-column label="法定代表人" width="120">
+        <el-table-column label="公司名称" width="180">
           <template #default="{ row }">
-            <el-link v-if="row.representative" type="primary" @click="handleViewPerson(row.representative)">
-              {{ row.representative.name }}
-            </el-link>
-            <span v-else>-</span>
+            <el-link type="primary" @click="handleViewDetail(row)">{{ row.name }}</el-link>
           </template>
         </el-table-column>
-        <!-- 法定代表人电话（可点击复制） -->
-        <el-table-column label="法人电话" width="130">
+        <el-table-column prop="tax_number" label="税号" width="170" />
+        <el-table-column label="法定代表人" width="100">
           <template #default="{ row }">
-            <el-link v-if="row.representative" type="primary" @click="handleCopy(row.representative.phone)">
+            {{ row.representative?.name || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="法人电话" width="120">
+          <template #default="{ row }">
+            <el-link v-if="row.representative?.phone" type="primary" @click="handleCopy(row.representative.phone)">
               {{ row.representative.phone }}
             </el-link>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <!-- 法定代表人密码（明文显示，可点击复制） -->
-        <el-table-column label="法人密码" width="120">
+        <el-table-column label="法人密码" width="110">
           <template #default="{ row }">
-            <el-link v-if="row.representative" type="primary" @click="handleCopy(row.representative.password)">
+            <el-link v-if="row.representative?.password" type="primary" @click="handleCopy(row.representative.password)">
               {{ row.representative.password }}
             </el-link>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="type" label="客户类型" width="120">
+        <el-table-column prop="taxpayer_type" label="纳税人类型" width="120">
           <template #default="{ row }">
-            <el-tag>{{ row.type }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="phone" label="联系电话" width="130" />
-        <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="registered_capital" label="注册资本" width="140">
-          <template #default="{ row }">
-            {{ row.registered_capital ? row.registered_capital.toLocaleString() + ' 元' : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="license_registration_date" label="执照登记日" width="120">
-          <template #default="{ row }">
-            {{ row.license_registration_date || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="tax_registration_date" label="税务登记日" width="120">
-          <template #default="{ row }">
-            {{ row.tax_registration_date || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="tax_office" label="税务所" width="150" show-overflow-tooltip />
-        <el-table-column prop="tax_administrator" label="税务管理员" width="120" show-overflow-tooltip />
-        <el-table-column prop="tax_administrator_phone" label="税务管理员电话" width="140" />
-        <el-table-column prop="taxpayer_type" label="纳税人类型" width="130">
-          <template #default="{ row }">
-            <el-tag v-if="row.taxpayer_type" :type="row.taxpayer_type === '一般纳税人' ? 'success' : 'warning'">{{ row.taxpayer_type }}</el-tag>
+            <el-tag v-if="row.taxpayer_type" :type="row.taxpayer_type === '一般纳税人' ? 'success' : 'warning'" size="small">
+              {{ row.taxpayer_type }}
+            </el-tag>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column prop="tax_office" label="税务所" width="120" show-overflow-tooltip />
+        <el-table-column prop="tax_administrator" label="管理员" width="100" show-overflow-tooltip />
+        <el-table-column prop="tax_administrator_phone" label="管理员电话" width="120" />
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
+            <el-button type="info" size="small" @click="handleViewDetail(row)">详情</el-button>
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
@@ -113,10 +92,10 @@
     <el-dialog
       v-model="dialogVisible"
       :title="isEdit ? '编辑客户' : '新增客户'"
-      width="800px"
+      width="850px"
       @close="handleDialogClose"
     >
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
+      <el-form :model="form" :rules="rules" ref="formRef" label-width="140px">
         <el-form-item label="公司名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入公司名称" />
         </el-form-item>
@@ -131,7 +110,10 @@
             <el-option label="个体工商户" value="个体工商户" />
           </el-select>
         </el-form-item>
-        <el-form-item label="联系电话" prop="phone">
+        <el-form-item label="执照登记日">
+          <el-date-picker v-model="form.license_registration_date" type="date" placeholder="请选择" value-format="YYYY-MM-DD" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="联系电话">
           <el-input v-model="form.phone" placeholder="请输入联系电话" />
         </el-form-item>
         <el-form-item label="地址">
@@ -144,23 +126,20 @@
 
         <!-- 税务信息 -->
         <el-divider content-position="left">税务信息</el-divider>
-        <el-form-item label="执照登记日">
-          <el-date-picker v-model="form.license_registration_date" type="date" placeholder="请选择" value-format="YYYY-MM-DD" style="width: 280px" />
-        </el-form-item>
         <el-form-item label="税务登记日">
-          <el-date-picker v-model="form.tax_registration_date" type="date" placeholder="请选择" value-format="YYYY-MM-DD" style="width: 280px" />
+          <el-date-picker v-model="form.tax_registration_date" type="date" placeholder="请选择" value-format="YYYY-MM-DD" style="width: 100%" />
         </el-form-item>
         <el-form-item label="税务所">
-          <el-input v-model="form.tax_office" placeholder="请输入税务所" style="width: 100%" />
+          <el-input v-model="form.tax_office" placeholder="请输入税务所" />
         </el-form-item>
         <el-form-item label="税务管理员">
-          <el-input v-model="form.tax_administrator" placeholder="请输入税务管理员" style="width: 100%" />
+          <el-input v-model="form.tax_administrator" placeholder="请输入税务管理员" />
         </el-form-item>
         <el-form-item label="税务管理员联系电话">
-          <el-input v-model="form.tax_administrator_phone" placeholder="请输入联系电话" style="width: 100%" />
+          <el-input v-model="form.tax_administrator_phone" placeholder="请输入联系电话" />
         </el-form-item>
         <el-form-item label="纳税人类型">
-          <el-select v-model="form.taxpayer_type" placeholder="请选择纳税人类型" style="width: 280px">
+          <el-select v-model="form.taxpayer_type" placeholder="请选择纳税人类型" style="width: 100%">
             <el-option label="一般纳税人" value="一般纳税人" />
             <el-option label="小规模纳税人" value="小规模纳税人" />
           </el-select>
@@ -237,6 +216,23 @@
               <el-input-number v-model="investor.share_ratio" :min="0" :max="100" :precision="2" style="width: 200px" />
               <span style="margin-left: 10px">%</span>
             </el-form-item>
+            <!-- 出资信息 -->
+            <el-divider content-position="left" style="margin: 10px 0;">出资记录</el-divider>
+            <el-button type="dashed" size="small" style="width: 100%; margin-bottom: 10px" @click="handleAddInvestmentRecord(index)">
+              <el-icon><Plus /></el-icon> 添加出资记录
+            </el-button>
+            <div v-for="(record, rIndex) in investor.investment_records" :key="rIndex" style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+              <el-date-picker
+                v-model="record.date"
+                type="date"
+                placeholder="出资日期"
+                value-format="YYYY-MM-DD"
+                style="flex: 1"
+              />
+              <el-input-number v-model="record.amount" :min="0" :precision="2" placeholder="出资金额" style="flex: 1" />
+              <span style="flex-shrink: 0">元</span>
+              <el-button type="danger" size="small" text @click="handleRemoveInvestmentRecord(index, rIndex)">删除</el-button>
+            </div>
           </el-form>
         </el-card>
 
@@ -261,6 +257,63 @@
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 客户详情弹窗 -->
+    <el-dialog v-model="detailDialogVisible" title="客户详情" width="700px" @close="handleDetailDialogClose">
+      <el-descriptions :column="2" border v-if="currentCustomer">
+        <el-descriptions-item label="公司名称">{{ currentCustomer.name }}</el-descriptions-item>
+        <el-descriptions-item label="税号">{{ currentCustomer.tax_number }}</el-descriptions-item>
+        <el-descriptions-item label="客户类型">{{ currentCustomer.type }}</el-descriptions-item>
+        <el-descriptions-item label="执照登记日">{{ currentCustomer.license_registration_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="联系电话">{{ currentCustomer.phone || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="注册资本">{{ currentCustomer.registered_capital ? currentCustomer.registered_capital.toLocaleString() + ' 元' : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="地址" :span="2">{{ currentCustomer.address || '-' }}</el-descriptions-item>
+
+        <!-- 税务信息 -->
+        <el-descriptions-item label="税务登记日">{{ currentCustomer.tax_registration_date || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="纳税人类型">{{ currentCustomer.taxpayer_type || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="税务所">{{ currentCustomer.tax_office || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="税务管理员">{{ currentCustomer.tax_administrator || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="税务管理员电话" :span="2">{{ currentCustomer.tax_administrator_phone || '-' }}</el-descriptions-item>
+
+        <!-- 法定代表人 -->
+        <el-descriptions-item label="法定代表人">{{ currentCustomer.representative?.name || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="法人电话">{{ currentCustomer.representative?.phone || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="法人身份证">{{ currentCustomer.representative?.id_card || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="法人密码">{{ currentCustomer.representative?.password || '-' }}</el-descriptions-item>
+
+        <!-- 投资人列表 -->
+        <el-descriptions-item label="投资人" :span="2">
+          <div v-if="customerInvestors.length > 0">
+            <div v-for="(inv, idx) in customerInvestors" :key="idx" style="margin-bottom: 8px;">
+              <el-tag>{{ inv.name }}</el-tag>
+              <span style="margin-left: 10px;">持股比例: {{ inv.share_ratio }}%</span>
+              <div v-if="inv.investment_records && inv.investment_records.length > 0" style="margin-left: 20px; font-size: 12px; color: #666;">
+                出资记录:
+                <span v-for="(rec, rIdx) in inv.investment_records" :key="rIdx">
+                  {{ rec.date }} {{ rec.amount }}元{{ rIdx < inv.investment_records.length - 1 ? '；' : '' }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <span v-else>-</span>
+        </el-descriptions-item>
+
+        <!-- 服务人员 -->
+        <el-descriptions-item label="服务人员" :span="2">
+          <div v-if="currentCustomer.service_persons && currentCustomer.service_persons.length > 0">
+            <el-tag v-for="person in currentCustomer.service_persons" :key="person.id" style="margin-right: 5px;">
+              {{ person.name }}
+            </el-tag>
+          </div>
+          <span v-else>-</span>
+        </el-descriptions-item>
+      </el-descriptions>
+      <template #footer>
+        <el-button @click="detailDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="handleEditFromDetail">编辑</el-button>
       </template>
     </el-dialog>
 
@@ -297,6 +350,12 @@ import type { Customer } from '@/api/customers'
 import type { Person } from '@/api/people'
 import { smartCopy, debounce } from '@/utils/clipboard'
 
+// 出资记录接口
+interface InvestmentRecord {
+  date: string
+  amount: number
+}
+
 // 投资人表单接口
 interface InvestorForm {
   id?: number
@@ -304,15 +363,19 @@ interface InvestorForm {
   phone: string
   id_card: string
   share_ratio: number
+  investment_records: InvestmentRecord[]
 }
 
 const loading = ref(false)
 const tableData = ref<Customer[]>([])
 const dialogVisible = ref(false)
+const detailDialogVisible = ref(false)
 const personDialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const currentCustomer = ref<Customer | null>(null)
+const customerInvestors = ref<any[]>([])
 
 // 人员搜索相关
 const servicePersonOptions = ref<Person[]>([])
@@ -429,7 +492,6 @@ const searchInvestorsForItemAuto = async (queryString: string, index: number) =>
     return []
   }
 
-  // 获取或创建该索引的防抖函数
   if (!searchInvestorsDebouncedMap.has(index)) {
     searchInvestorsDebouncedMap.set(index, debounce(async (qs: string) => {
       try {
@@ -468,13 +530,27 @@ const handleAddInvestor = () => {
     name: '',
     phone: '',
     id_card: '',
-    share_ratio: 0
+    share_ratio: 0,
+    investment_records: []
   })
 }
 
 // 删除投资人
 const handleRemoveInvestor = (index: number) => {
   investorsForm.value.splice(index, 1)
+}
+
+// 添加出资记录
+const handleAddInvestmentRecord = (investorIndex: number) => {
+  investorsForm.value[investorIndex].investment_records.push({
+    date: '',
+    amount: 0
+  })
+}
+
+// 删除出资记录
+const handleRemoveInvestmentRecord = (investorIndex: number, recordIndex: number) => {
+  investorsForm.value[investorIndex].investment_records.splice(recordIndex, 1)
 }
 
 // 加载所有服务人员（静态下拉）
@@ -496,6 +572,41 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.keyword = ''
   handleSearch()
+}
+
+// 查看客户详情
+const handleViewDetail = (row: Customer) => {
+  currentCustomer.value = row
+
+  // 处理投资人数据
+  if (row.investors) {
+    try {
+      const investorInfos = JSON.parse(row.investors)
+      customerInvestors.value = investorInfos.map((info: any) => {
+        const person = row.investor_list?.find((p: Person) => p.id === info.person_id)
+        return {
+          ...info,
+          name: person?.name || '',
+          investment_records: info.investment_records || []
+        }
+      })
+    } catch (e) {
+      console.error('解析投资人数据失败:', e)
+      customerInvestors.value = []
+    }
+  } else {
+    customerInvestors.value = []
+  }
+
+  detailDialogVisible.value = true
+}
+
+// 从详情页打开编辑
+const handleEditFromDetail = () => {
+  detailDialogVisible.value = false
+  if (currentCustomer.value) {
+    handleEdit(currentCustomer.value)
+  }
 }
 
 const handleAdd = () => {
@@ -562,7 +673,6 @@ const handleEdit = (row: Customer) => {
     try {
       const investorInfos = JSON.parse(row.investors)
       for (const info of investorInfos) {
-        // 查找对应的人员信息
         let personData: Partial<Person> = {
           name: '',
           phone: '',
@@ -579,7 +689,8 @@ const handleEdit = (row: Customer) => {
           name: personData.name || '',
           phone: personData.phone || '',
           id_card: personData.id_card || '',
-          share_ratio: info.share_ratio || 0
+          share_ratio: info.share_ratio || 0,
+          investment_records: info.investment_records || []
         })
       }
     } catch (e) {
@@ -606,14 +717,12 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    // 用于记录身份证号到人员ID的映射，处理重复身份证的情况
     const idCardToPersonId = new Map<string, number>()
 
-    // 处理法定代表人 - 创建或更新
+    // 处理法定代表人
     let representativeId = form.representative_id
     if (representativeForm.name) {
       if (representativeForm.id) {
-        // 更新已有人员
         await updatePerson(representativeForm.id, {
           name: representativeForm.name,
           phone: representativeForm.phone,
@@ -621,17 +730,14 @@ const handleSubmit = async () => {
           password: representativeForm.password
         })
         representativeId = representativeForm.id
-        // 记录身份证号映射
         if (representativeForm.id_card) {
           idCardToPersonId.set(representativeForm.id_card, representativeForm.id)
         }
       } else {
-        // 创建新人员前，先检查是否已存在相同身份证号
         if (representativeForm.id_card) {
           const existingRes = await getPeople({ keyword: representativeForm.id_card })
           const existing = existingRes.items.find((p: Person) => p.id_card === representativeForm.id_card)
           if (existing) {
-            // 找到已存在的人员，更新其信息
             await updatePerson(existing.id, {
               name: representativeForm.name,
               phone: representativeForm.phone,
@@ -640,7 +746,6 @@ const handleSubmit = async () => {
             representativeId = existing.id
             idCardToPersonId.set(representativeForm.id_card, existing.id)
           } else {
-            // 没有找到，创建新人员
             const newPerson = await createPerson({
               name: representativeForm.name,
               phone: representativeForm.phone,
@@ -651,7 +756,6 @@ const handleSubmit = async () => {
             idCardToPersonId.set(representativeForm.id_card, newPerson.id)
           }
         } else {
-          // 没有身份证号，直接创建
           const newPerson = await createPerson({
             name: representativeForm.name,
             phone: representativeForm.phone,
@@ -663,14 +767,13 @@ const handleSubmit = async () => {
       }
     }
 
-    // 处理投资人 - 创建或更新
+    // 处理投资人
     const investors = []
     for (const investor of investorsForm.value) {
       if (investor.name) {
         let personId = investor.id
 
         if (investor.id) {
-          // 更新已有人员
           await updatePerson(investor.id, {
             name: investor.name,
             phone: investor.phone,
@@ -681,16 +784,12 @@ const handleSubmit = async () => {
             idCardToPersonId.set(investor.id_card, investor.id)
           }
         } else {
-          // 创建新人员前，先检查是否已存在相同身份证号
           if (investor.id_card && idCardToPersonId.has(investor.id_card)) {
-            // 已存在该身份证号（可能是刚创建的法定代表人），复用
             personId = idCardToPersonId.get(investor.id_card)!
           } else if (investor.id_card) {
-            // 检查数据库中是否已存在
             const existingRes = await getPeople({ keyword: investor.id_card })
             const existing = existingRes.items.find((p: Person) => p.id_card === investor.id_card)
             if (existing) {
-              // 找到已存在的人员，更新其信息
               await updatePerson(existing.id, {
                 name: investor.name,
                 phone: investor.phone
@@ -698,7 +797,6 @@ const handleSubmit = async () => {
               personId = existing.id
               idCardToPersonId.set(investor.id_card, existing.id)
             } else {
-              // 没有找到，创建新人员
               const newPerson = await createPerson({
                 name: investor.name,
                 phone: investor.phone,
@@ -708,7 +806,6 @@ const handleSubmit = async () => {
               idCardToPersonId.set(investor.id_card!, newPerson.id)
             }
           } else {
-            // 没有身份证号，直接创建
             const newPerson = await createPerson({
               name: investor.name,
               phone: investor.phone,
@@ -720,7 +817,8 @@ const handleSubmit = async () => {
 
         investors.push({
           person_id: personId,
-          share_ratio: investor.share_ratio || 0
+          share_ratio: investor.share_ratio || 0,
+          investment_records: investor.investment_records || []
         })
       }
     }
@@ -748,6 +846,11 @@ const handleSubmit = async () => {
 
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+}
+
+const handleDetailDialogClose = () => {
+  currentCustomer.value = null
+  customerInvestors.value = []
 }
 
 // 查看人员详情
