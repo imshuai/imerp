@@ -206,7 +206,7 @@ const rules = {
       required: true,
       message: '请输入协议编号',
       trigger: 'blur',
-      validator: (rule: any, value: any, callback: any) => {
+      validator: (_rule: any, value: any, callback: any) => {
         // 新增时协议编号自动生成，不需要验证
         if (!isEdit.value) {
           callback()
