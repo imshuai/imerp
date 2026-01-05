@@ -3,41 +3,62 @@ package main
 import (
 	"erp/config"
 	"erp/routes"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 func main() {
+	// 获取运行环境，默认为development
+	env := os.Getenv("APP_ENV")
+	if env == "" {
+		env = "development"
+	}
+
+	// 初始化日志系统
+	if err := config.InitLogger(env); err != nil {
+		os.Stderr.WriteString("Failed to initialize logger: " + err.Error() + "\n")
+		os.Exit(1)
+	}
+	defer config.SyncLogger()
+
+	// 设置Gin运行模式
+	if env == "production" {
+		config.Info("Starting ERP server in production mode",
+			zap.String("version", "v0.4.0"))
+	} else {
+		config.Info("Starting ERP server in development mode",
+			zap.String("version", "v0.4.0"),
+			zap.String("env", env))
+	}
+
 	// 初始化数据库
 	if err := config.InitDatabase(); err != nil {
-		log.Fatal("Failed to initialize database:", err)
+		config.Fatal("Failed to initialize database", zap.Error(err))
 	}
 
 	// 创建Gin实例
-	r := gin.Default()
+	r := routes.SetupGinEngine(env)
 
-	// CORS中间件
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
-	// 设置路由
-	routes.SetupRoutes(r)
+	// 优雅关闭处理
+	go func() {
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+		config.Info("Shutting down server gracefully...")
+		config.SyncLogger()
+		os.Exit(0)
+	}()
 
 	// 启动服务
-	log.Println("Server starting on :8080")
-	if err := r.Run(":8080"); err != nil {
-		log.Fatal("Failed to start server:", err)
+	addr := ":8080"
+	config.Info("Server listening",
+		zap.String("addr", addr),
+		zap.String("frontend", "http://localhost:8080"),
+		zap.String("api", "http://localhost:8080/api"))
+	if err := r.Run(addr); err != nil {
+		config.Fatal("Failed to start server", zap.Error(err))
 	}
 }
