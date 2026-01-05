@@ -4,6 +4,7 @@ import (
 	"erp/embedded"
 	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,7 +15,7 @@ func SetupFrontendRoutes(r *gin.Engine) {
 	distFS, err := fs.Sub(embedded.DistFS(), "dist")
 	if err != nil {
 		// 如果没有构建产物，返回提示信息
-		r.GET("/*filepath", func(c *gin.Context) {
+		r.NoRoute(func(c *gin.Context) {
 			c.HTML(200, "", `
 			<!DOCTYPE html>
 			<html>
@@ -46,18 +47,24 @@ func SetupFrontendRoutes(r *gin.Engine) {
 
 	// 静态资源服务（处理 /assets 路径）
 	r.GET("/assets/*filepath", func(c *gin.Context) {
-		c.Request.URL.Path = c.Request.URL.Path[1:] // 去掉前导 /
+		c.Request.URL.Path = strings.TrimPrefix(c.Request.URL.Path, "/")
 		fileServer.ServeHTTP(c.Writer, c.Request)
 	})
 
 	// SPA fallback - 使用 NoRoute 处理所有其他路由
 	r.NoRoute(func(c *gin.Context) {
 		// 跳过API路由
-		if len(c.Request.URL.Path) >= 4 && c.Request.URL.Path[:4] == "/api" {
+		if strings.HasPrefix(c.Request.URL.Path, "/api") {
 			c.JSON(404, gin.H{"code": 1, "message": "Not Found"})
 			return
 		}
-		c.Request.URL.Path = "/index.html"
-		fileServer.ServeHTTP(c.Writer, c.Request)
+		// 对于所有其他前端路由，读取并返回 index.html
+		indexData, err := fs.ReadFile(distFS, "index.html")
+		if err != nil {
+			c.String(404, "index.html not found: %v", err)
+			return
+		}
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.Data(200, "text/html; charset=utf-8", indexData)
 	})
 }
