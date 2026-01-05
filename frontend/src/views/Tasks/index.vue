@@ -35,6 +35,28 @@
 
       <!-- 表格 -->
       <el-table :data="tableData" border stripe v-loading="loading" style="width: 100%">
+        <el-table-column prop="id" label="任务ID" width="80" align="center" />
+        <el-table-column prop="title" label="任务标题" min-width="200" />
+        <el-table-column prop="description" label="任务描述" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="customer.name" label="关联客户" min-width="150" />
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="due_date" label="截止日期" width="110">
+          <template #default="{ row }">
+            {{ row.due_date ? formatDate(row.due_date) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="进行中" width="70" align="center">
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="row.status === '进行中'"
+              @change="handleToggleInProgress(row)"
+            />
+          </template>
+        </el-table-column>
         <el-table-column label="完成" width="60" align="center">
           <template #default="{ row }">
             <el-checkbox
@@ -43,19 +65,6 @@
             />
           </template>
         </el-table-column>
-        <el-table-column prop="title" label="任务标题" min-width="200" />
-        <el-table-column prop="description" label="任务描述" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="due_date" label="截止日期" width="120">
-          <template #default="{ row }">
-            {{ row.due_date ? formatDate(row.due_date) : '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="customer.name" label="关联客户" min-width="150" />
         <el-table-column label="操作" min-width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
@@ -191,7 +200,11 @@ const getStatusTagType = (status: string) => {
 }
 
 const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleDateString('zh-CN')
+  const date = new Date(dateStr)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 // 搜索客户 - 带防抖
@@ -259,6 +272,17 @@ const handleToggleComplete = async (row: Task) => {
     await updateTask(row.id, { ...row, status: newStatus as TaskStatus })
     row.status = newStatus as TaskStatus
     ElMessage.success(newStatus === '已完成' ? '任务已完成' : '任务已重置为待处理')
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
+}
+
+const handleToggleInProgress = async (row: Task) => {
+  const newStatus = row.status === '进行中' ? '待处理' : '进行中'
+  try {
+    await updateTask(row.id, { ...row, status: newStatus as TaskStatus })
+    row.status = newStatus as TaskStatus
+    ElMessage.success(newStatus === '进行中' ? '任务已标记为进行中' : '任务已重置为待处理')
   } catch (error) {
     ElMessage.error('操作失败')
   }
