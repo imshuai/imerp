@@ -111,6 +111,16 @@ require (
 
 ## 功能扩展记录
 
+### v0.5.0 (2026-01-05)
+PersonType 重构：
+- 删除 PersonType 枚举类型
+- Person 模型使用 IsServicePerson 布尔属性标识服务人员
+- 法定代表人和投资人通过关联关系（RepresentativeCustomerIDs、InvestorCustomerIDs）确定
+- 简化人员管理逻辑，移除冗余的类型判断
+- 更新前后端 API 和导入导出功能
+- 添加跨平台构建脚本（build.sh、build.bat、build.ps1）
+- 支持 linux/amd64、linux/arm64、linux/armv7、windows/amd64 平台
+
 ### v0.4.0 (2026-01-05)
 前端开发完成：
 - 新增Vue 3 + TypeScript + Vite前端项目
@@ -149,6 +159,7 @@ require (
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| v0.5.0 | 2026-01-05 | PersonType 重构，添加构建脚本 |
 | v0.4.0 | 2026-01-05 | Vue 3前端开发完成，支持静态资源嵌入 |
 | v0.3.0 | 2026-01-05 | 新增Excel导入导出功能 |
 | v0.2.0 | 2026-01-04 | 数据模型重构，新增人员管理 |

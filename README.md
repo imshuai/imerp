@@ -31,10 +31,10 @@
 - **统计分析** - 首页概览、任务统计、收款汇总
 - **导入导出** - Excel批量导入/导出人员和客户数据
 
-### 人员类型
-- **法定代表人** - 企业法人代表
-- **投资人** - 企业股东，支持持股比例和多次出资记录
-- **服务人员** - 服务该客户的员工
+### 人员管理
+- **服务人员** - 服务客户的员工（通过 is_service_person 标识）
+- **法定代表人** - 企业法人代表（通过关联关系确定）
+- **投资人** - 企业股东，支持持股比例和多次出资记录（通过关联关系确定）
 
 ### 客户类型
 - 有限公司
@@ -110,7 +110,64 @@ go run main.go
 
 ### 编译
 
-#### 生产构建（单文件部署）
+#### 使用构建脚本（推荐）
+
+项目提供了便捷的构建脚本，支持前端和后端的快速构建。
+
+**Linux/macOS:**
+```bash
+# 构建前端 + 本平台后端
+./build.sh
+
+# 只构建前端
+./build.sh --frontend-only
+
+# 只构建后端
+./build.sh --backend-only
+
+# 构建所有平台的后端
+./build.sh --backend-only --all
+
+# 指定构建目标
+./build.sh --targets linux/arm64,windows/amd64
+
+# 清理后重新构建
+./build.sh --clean
+```
+
+**Windows CMD:**
+```cmd
+REM 构建前端 + 本平台后端
+build.bat
+
+REM 只构建前端
+build.bat -f
+
+REM 只构建后端
+build.bat -b --all
+```
+
+**Windows PowerShell:**
+```powershell
+# 构建前端 + 本平台后端
+.\build.ps1
+
+# 只构建前端
+.\build.ps1 -FrontendOnly
+
+# 只构建后端
+.\build.ps1 -BackendOnly -All
+```
+
+**支持的平台:**
+- linux/amd64
+- linux/arm64
+- linux/armv7
+- windows/amd64
+
+#### 手动编译
+
+**生产构建（单文件部署）**
 
 ```bash
 # 1. 构建前端
@@ -127,7 +184,9 @@ go build -o erp main.go
 
 编译后的 `erp` 可执行文件已包含所有前端资源，可以直接部署到服务器运行。
 
-#### 交叉编译
+#### 交叉编译（手动）
+
+如需手动交叉编译：
 
 ```bash
 # Linux ARM64
