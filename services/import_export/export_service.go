@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -216,10 +217,10 @@ func (s *ExportService) ExportCustomersToExcel() ([]byte, string, error) {
 	}
 
 	// 调整列宽
-	excelService.SetColWidth(sheetName, "A", "A", 25)  // 公司名称
-	excelService.SetColWidth(sheetName, "I", "I", 30)  // 投资人
-	excelService.SetColWidth(sheetName, "J", "J", 20)  // 服务人员
-	excelService.SetColWidth(sheetName, "K", "K", 40)  // 协议信息
+	excelService.SetColWidth(sheetName, "A", 25)  // 公司名称
+	excelService.SetColWidth(sheetName, "I", 30)  // 投资人
+	excelService.SetColWidth(sheetName, "J", 20)  // 服务人员
+	excelService.SetColWidth(sheetName, "K", 40)  // 协议信息
 
 	// 保存到临时文件
 	tempDir := os.TempDir()

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 // TemplateService 模板服务
@@ -49,7 +50,7 @@ func (s *TemplateService) GeneratePeopleTemplate() ([]byte, string, error) {
 
 	// 为示例数据设置边框
 	lastRow := 1 + len(sampleData)
-	endCell1, _ := excelize.CoordinatesToCellName(1, lastRow)
+	_, _ = excelize.CoordinatesToCellName(1, lastRow)
 	endCell2, _ := excelize.CoordinatesToCellName(5, lastRow)
 	startCell2, _ := excelize.CoordinatesToCellName(1, 2)
 	if err := s.excelService.SetBorderStyle(sheetName, startCell2, endCell2); err != nil {
@@ -93,9 +94,9 @@ func (s *TemplateService) GenerateCustomersTemplate() ([]byte, string, error) {
 	}
 
 	// 调整列宽（有些列需要更宽）
-	s.excelService.SetColWidth(sheetName, "I", "I", 30)  // 投资人信息
-	s.excelService.SetColWidth(sheetName, "J", "J", 20)  // 服务人员信息
-	s.excelService.SetColWidth(sheetName, "K", "K", 40)  // 协议信息
+	s.excelService.SetColWidth(sheetName, "I", 30)  // 投资人信息
+	s.excelService.SetColWidth(sheetName, "J", 20)  // 服务人员信息
+	s.excelService.SetColWidth(sheetName, "K", 40)  // 协议信息
 
 	// 添加示例数据
 	sampleData := [][]interface{}{
@@ -122,7 +123,7 @@ func (s *TemplateService) GenerateCustomersTemplate() ([]byte, string, error) {
 
 	// 为示例数据设置边框
 	lastRow := 1 + len(sampleData)
-	endCell1, _ := excelize.CoordinatesToCellName(1, lastRow)
+	_, _ = excelize.CoordinatesToCellName(1, lastRow)
 	endCell2, _ := excelize.CoordinatesToCellName(11, lastRow)
 	startCell2, _ := excelize.CoordinatesToCellName(1, 2)
 	if err := s.excelService.SetBorderStyle(sheetName, startCell2, endCell2); err != nil {
@@ -162,10 +163,10 @@ func (s *TemplateService) GenerateCustomersTemplate() ([]byte, string, error) {
 	// 设置说明表头样式
 	s.excelService.SetHeaderStyleByRange("填写说明", "A1", "D1")
 	s.excelService.SetBorderStyle("填写说明", "A1", fmt.Sprintf("D%d", len(instructions)))
-	s.excelService.SetColWidth("填写说明", "A", "A", 20)
-	s.excelService.SetColWidth("填写说明", "B", "B", 40)
-	s.excelService.SetColWidth("填写说明", "C", "C", 30)
-	s.excelService.SetColWidth("填写说明", "D", "D", 12)
+	s.excelService.SetColWidth("填写说明", "A", 20)
+	s.excelService.SetColWidth("填写说明", "B", 40)
+	s.excelService.SetColWidth("填写说明", "C", 30)
+	s.excelService.SetColWidth("填写说明", "D", 12)
 
 	// 保存到临时文件
 	tempDir := os.TempDir()

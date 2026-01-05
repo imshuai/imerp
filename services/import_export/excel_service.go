@@ -74,7 +74,14 @@ func (s *ExcelService) GetCellValueByRowCol(sheet string, row, col int) (string,
 
 // GetRow 获取指定行的所有列值
 func (s *ExcelService) GetRow(sheet string, row int) ([]string, error) {
-	return s.file.GetRows(sheet)[row-1], nil
+	rows, err := s.file.GetRows(sheet)
+	if err != nil {
+		return nil, fmt.Errorf("读取行数据失败: %w", err)
+	}
+	if row < 1 || row > len(rows) {
+		return nil, fmt.Errorf("行号 %d 超出范围", row)
+	}
+	return rows[row-1], nil
 }
 
 // GetRows 获取所有行数据
@@ -222,7 +229,7 @@ func (s *ExcelService) SetSheetHeader(sheet string, headers []string) error {
 	for i := range headers {
 		col, _ := excelize.CoordinatesToCellName(i+1, 1)
 		colName := col[:len(col)-1]
-		if err := s.SetColWidth(sheet, colName, colName, 15); err != nil {
+		if err := s.SetColWidth(sheet, colName, 15); err != nil {
 			return err
 		}
 	}
