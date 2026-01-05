@@ -143,7 +143,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getAgreements, createAgreement, updateAgreement, deleteAgreement } from '@/api/agreements'
-import type { Agreement, AgreementStatus, FeeType } from '@/api/agreements'
+import type { Agreement, AgreementStatus } from '@/api/agreements'
 
 const loading = ref(false)
 const tableData = ref<Agreement[]>([])

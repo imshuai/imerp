@@ -39,7 +39,7 @@
 
           <div class="section">
             <h4>导出人员</h4>
-            <el-button type="success" @click="exportPeople" :loading="exportingPeople">
+            <el-button type="success" @click="handleExportPeople" :loading="exportingPeople">
               <el-icon><Upload /></el-icon>
               导出人员数据
             </el-button>
@@ -85,7 +85,7 @@
 
           <div class="section">
             <h4>导出客户</h4>
-            <el-button type="success" @click="exportCustomers" :loading="exportingCustomers">
+            <el-button type="success" @click="handleExportCustomers" :loading="exportingCustomers">
               <el-icon><Upload /></el-icon>
               导出客户数据
             </el-button>
@@ -233,7 +233,7 @@ const confirmImport = async () => {
   }
 }
 
-const exportPeople = async () => {
+const handleExportPeople = async () => {
   exportingPeople.value = true
   try {
     const blob = await exportPeople()
@@ -246,7 +246,7 @@ const exportPeople = async () => {
   }
 }
 
-const exportCustomers = async () => {
+const handleExportCustomers = async () => {
   exportingCustomers.value = true
   try {
     const blob = await exportCustomers()

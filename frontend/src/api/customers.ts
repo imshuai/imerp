@@ -1,4 +1,6 @@
 import { http } from './index'
+import type { Person } from './people'
+import type { Agreement } from './agreements'
 
 // 客户类型
 export type CustomerType = '有限公司' | '个人独资企业' | '合伙企业' | '个体工商户'

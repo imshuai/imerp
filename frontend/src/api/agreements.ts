@@ -1,4 +1,5 @@
 import { http } from './index'
+import type { Payment } from './payments'
 
 // 收费类型
 export type FeeType = '月度' | '季度' | '年度'

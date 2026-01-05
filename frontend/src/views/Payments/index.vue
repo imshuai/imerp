@@ -130,7 +130,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getPayments, createPayment, updatePayment, deletePayment } from '@/api/payments'
-import type { Payment, PaymentMethod } from '@/api/payments'
+import type { Payment } from '@/api/payments'
 
 const loading = ref(false)
 const tableData = ref<Payment[]>([])

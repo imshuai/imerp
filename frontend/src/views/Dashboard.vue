@@ -83,7 +83,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getOverview, getTaskStats, getPaymentStats } from '@/api/statistics'
-import type { OverviewStats, TaskStats, PaymentStats } from '@/api/statistics'
+import type { TaskStats, PaymentStats } from '@/api/statistics'
 
 const stats = ref([
   { title: '客户总数', value: 0, icon: 'OfficeBuilding', color: '#ecf5ff', iconColor: '#409EFF' },

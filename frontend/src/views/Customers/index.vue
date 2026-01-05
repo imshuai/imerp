@@ -107,7 +107,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '@/api/customers'
-import type { Customer, CustomerType } from '@/api/customers'
+import type { Customer } from '@/api/customers'
 
 const loading = ref(false)
 const tableData = ref<Customer[]>([])
