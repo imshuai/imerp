@@ -743,6 +743,16 @@ const handleSubmit = async () => {
 
     // 处理投资人
     const investors = []
+
+    // 如果填写了法定代表人但投资人列表为空，自动将法定代表人添加为投资人（100%）
+    if (representativeId && investorsForm.value.length === 0) {
+      investors.push({
+        person_id: representativeId,
+        share_ratio: 100,
+        investment_records: []
+      })
+    }
+
     for (const investor of investorsForm.value) {
       if (investor.name) {
         let personId = investor.id
