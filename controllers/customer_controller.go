@@ -147,16 +147,14 @@ func GetCustomer(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := config.DB.First(&customer, id).Error; err != nil {
+	// 使用Preload一次性加载所有关联数据
+	if err := config.DB.Preload("Tasks").Preload("Payments").First(&customer, id).Error; err != nil {
 		ErrorResponse(c, 404, "Customer not found")
 		return
 	}
 
 	// 加载关联的人员信息
 	loadCustomerRelations(&customer)
-
-	// 加载原有关联
-	config.DB.Preload("Tasks").Preload("Payments").First(&customer, id)
 
 	SuccessResponse(c, customer)
 }
@@ -271,17 +269,38 @@ func loadCustomerRelations(customer *models.Customer) {
 	}
 
 	// 加载投资人列表
-	if customer.Investors != nil {
+	// investors字段可能是JSON字符串（前端JSON.stringify的结果），需要先解析为字符串再解析为数组
+	if customer.Investors != nil && len(customer.Investors) > 0 {
 		var investorInfos []models.InvestorInfo
-		if err := json.Unmarshal(customer.Investors, &investorInfos); err == nil {
-			var investorIDs []uint
-			for _, info := range investorInfos {
-				investorIDs = append(investorIDs, info.PersonID)
+		var investorsJSON []byte
+
+		// 尝试直接解析（如果investors已经是JSON数组）
+		if err := json.Unmarshal(customer.Investors, &investorInfos); err != nil {
+			// 如果失败，尝试先解析为字符串（如果investors是JSON字符串）
+			var investorsStr string
+			if err2 := json.Unmarshal(customer.Investors, &investorsStr); err2 == nil {
+				investorsJSON = []byte(investorsStr)
+			} else {
+				// 如果还是失败，直接使用原始字节数组
+				investorsJSON = customer.Investors
 			}
-			if len(investorIDs) > 0 {
-				var investors []models.Person
-				config.DB.Where("id IN ?", investorIDs).Find(&investors)
-				customer.InvestorList = investors
+		} else {
+			// 直接解析成功，使用原始字节数组
+			investorsJSON = customer.Investors
+		}
+
+		// 解析投资人信息
+		if len(investorsJSON) > 0 {
+			if err := json.Unmarshal(investorsJSON, &investorInfos); err == nil {
+				var investorIDs []uint
+				for _, info := range investorInfos {
+					investorIDs = append(investorIDs, info.PersonID)
+				}
+				if len(investorIDs) > 0 {
+					var investors []models.Person
+					config.DB.Where("id IN ?", investorIDs).Find(&investors)
+					customer.InvestorList = investors
+				}
 			}
 		}
 	}
