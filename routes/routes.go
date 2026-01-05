@@ -2,12 +2,19 @@ package routes
 
 import (
 	"erp/controllers"
+	"erp/config"
 
 	"github.com/gin-gonic/gin"
 )
 
 // SetupRoutes 配置所有路由
 func SetupRoutes(r *gin.Engine) {
+	// 获取数据库连接
+	db := config.DB
+
+	// 创建导入导出控制器
+	importExportCtrl := controllers.NewImportExportController(db)
+
 	// API路由组
 	api := r.Group("/api")
 	{
@@ -70,6 +77,24 @@ func SetupRoutes(r *gin.Engine) {
 			statistics.GET("/overview", controllers.GetOverview)
 			statistics.GET("/tasks", controllers.GetTaskStats)
 			statistics.GET("/payments", controllers.GetPaymentStats)
+		}
+
+		// 导入导出路由
+		templates := api.Group("/templates")
+		{
+			templates.GET("/:type", importExportCtrl.DownloadTemplate)
+		}
+
+		importAPI := api.Group("/import")
+		{
+			importAPI.POST("/people", importExportCtrl.ImportPeople)
+			importAPI.POST("/customers", importExportCtrl.ImportCustomers)
+		}
+
+		export := api.Group("/export")
+		{
+			export.GET("/people", importExportCtrl.ExportPeople)
+			export.GET("/customers", importExportCtrl.ExportCustomers)
 		}
 	}
 }

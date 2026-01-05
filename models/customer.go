@@ -9,10 +9,10 @@ import (
 type CustomerType string
 
 const (
-	CustomerTypeLimitedCompany     CustomerType = "limited_company"      // 有限公司
-	CustomerTypeSoleProprietorship CustomerType = "sole_proprietorship"  // 个人独资企业
-	CustomerTypePartnership        CustomerType = "partnership"          // 合伙企业
-	CustomerTypeIndividualBusiness CustomerType = "individual_business"  // 个体工商户
+	CustomerTypeLimitedCompany     CustomerType = "有限公司"      // 有限公司
+	CustomerTypeSoleProprietorship CustomerType = "个人独资企业"  // 个人独资企业
+	CustomerTypePartnership        CustomerType = "合伙企业"          // 合伙企业
+	CustomerTypeIndividualBusiness CustomerType = "个体工商户"  // 个体工商户
 )
 
 // InvestorInfo 投资人信息（JSON结构）

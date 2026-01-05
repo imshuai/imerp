@@ -6,10 +6,10 @@ import "time"
 type PersonType string
 
 const (
-	PersonTypeRepresentative PersonType = "representative"   // 法定代表人
-	PersonTypeInvestor       PersonType = "investor"         // 投资人
-	PersonTypeServicePerson  PersonType = "service_person"   // 服务人员
-	PersonTypeMixed          PersonType = "mixed"            // 混合角色
+	PersonTypeRepresentative PersonType = "法定代表人"   // 法定代表人
+	PersonTypeInvestor       PersonType = "投资人"         // 投资人
+	PersonTypeServicePerson  PersonType = "服务人员"   // 服务人员
+	PersonTypeMixed          PersonType = "混合角色"      // 混合角色
 )
 
 // Person 人员信息

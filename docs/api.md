@@ -315,6 +315,115 @@ GET /api/customers/:id/payments
 
 ---
 
+## 导入导出 API
+
+### 1. 下载导入模板
+
+**请求**
+```
+GET /api/templates/:type
+```
+
+**路径参数**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| type | string | 是 | 模板类型 (people/customers) |
+
+**响应**
+- 返回Excel文件下载
+
+### 2. 导入人员
+
+**请求**
+```
+POST /api/import/people
+Content-Type: multipart/form-data
+```
+
+**表单参数**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| file | file | 是 | Excel文件 |
+| strategy | string | 否 | 冲突策略 (skip/update/create_new) |
+
+**strategy 说明**
+- `skip` - 跳过已存在的记录（默认）
+- `update` - 更新已存在的记录
+- `create_new` - 修改标识后创建新记录
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "导入完成",
+  "data": {
+    "total": 10,
+    "success": 8,
+    "failed": 2,
+    "errors": [
+      {"row": 3, "column": "身份证号", "message": "身份证号已存在"},
+      {"row": 7, "column": "类型", "message": "类型无效"}
+    ]
+  }
+}
+```
+
+### 3. 导入客户
+
+**请求**
+```
+POST /api/import/customers
+Content-Type: multipart/form-data
+```
+
+**表单参数**
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| file | file | 是 | Excel文件 |
+| strategy | string | 否 | 冲突策略 (skip/update/create_new) |
+
+**客户导入说明**
+- 法定代表人：不存在则自动创建
+- 投资人：不存在则自动创建
+- 服务人员：必须已存在，否则报错
+- 协议：随客户一起创建
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "导入完成",
+  "data": {
+    "total": 5,
+    "success": 5,
+    "failed": 0,
+    "errors": []
+  }
+}
+```
+
+### 4. 导出人员
+
+**请求**
+```
+GET /api/export/people
+```
+
+**响应**
+- 返回Excel文件下载
+
+### 5. 导出客户
+
+**请求**
+```
+GET /api/export/customers
+```
+
+**响应**
+- 返回Excel文件下载（包含关联人员和协议信息）
+
+---
+
 ## 数据模型
 
 ### Person (人员)

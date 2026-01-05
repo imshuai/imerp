@@ -8,6 +8,7 @@
 - **Web框架**: [Gin](https://github.com/gin-gonic/gin)
 - **ORM**: [GORM](https://github.com/go-gorm/gorm)
 - **数据库**: SQLite (支持迁移到MySQL)
+- **Excel处理**: [excelize](https://github.com/xuri/excelize)
 
 ## 功能特性
 
@@ -18,6 +19,7 @@
 - **协议管理** - 代理记账协议，支持服务费和有效期管理
 - **收款管理** - 收款记录，支持按时间范围筛选
 - **统计分析** - 首页概览、任务统计、收款汇总
+- **导入导出** - Excel批量导入/导出人员和客户数据
 
 ### 人员类型
 - **法定代表人** - 企业法人代表
@@ -87,9 +89,19 @@ erp/
 │   ├── task_controller.go      # 任务控制器
 │   ├── agreement_controller.go # 协议控制器
 │   ├── payment_controller.go   # 收款控制器
-│   └── statistics_controller.go # 统计控制器
+│   ├── statistics_controller.go # 统计控制器
+│   └── import_export_controller.go # 导入导出控制器
 ├── routes/                 # 路由
 │   └── routes.go
+├── services/               # 服务层
+│   └── import_export/      # 导入导出服务
+│       ├── excel_service.go      # Excel基础服务
+│       ├── template_service.go   # 模板生成服务
+│       ├── people_import.go      # 人员导入服务
+│       ├── customer_import.go    # 客户导入服务
+│       └── export_service.go     # 导出服务
+├── utils/                  # 工具函数
+│   └── excel_utils.go      # Excel工具函数
 ├── docs/                   # 文档
 │   └── api.md              # API文档
 └── database/               # 数据库文件
@@ -110,6 +122,11 @@ erp/
 | 协议 | `GET /api/agreements` | 获取协议列表 |
 | 收款 | `GET /api/payments` | 获取收款记录 |
 | 统计 | `GET /api/statistics/overview` | 首页统计 |
+| 模板 | `GET /api/templates/:type` | 下载导入模板 |
+| 导入 | `POST /api/import/people` | 导入人员 |
+| 导入 | `POST /api/import/customers` | 导入客户 |
+| 导出 | `GET /api/export/people` | 导出人员 |
+| 导出 | `GET /api/export/customers` | 导出客户 |
 
 ### 响应格式
 
