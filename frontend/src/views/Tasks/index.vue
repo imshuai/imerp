@@ -34,8 +34,16 @@
       </div>
 
       <!-- 表格 -->
-      <el-table :data="tableData" border stripe v-loading="loading">
-        <el-table-column prop="title" label="任务标题" width="200" />
+      <el-table :data="tableData" border stripe v-loading="loading" style="width: 100%">
+        <el-table-column label="完成" width="60" align="center">
+          <template #default="{ row }">
+            <el-checkbox
+              :model-value="row.status === '已完成'"
+              @change="handleToggleComplete(row)"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="title" label="任务标题" min-width="200" />
         <el-table-column prop="description" label="任务描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
@@ -47,8 +55,8 @@
             {{ row.due_date ? formatDate(row.due_date) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="customer.name" label="关联客户" width="150" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column prop="customer.name" label="关联客户" min-width="150" />
+        <el-table-column label="操作" min-width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
@@ -243,6 +251,17 @@ const handleAdd = () => {
   })
   customerOptions.value = []
   dialogVisible.value = true
+}
+
+const handleToggleComplete = async (row: Task) => {
+  const newStatus = row.status === '已完成' ? '待处理' : '已完成'
+  try {
+    await updateTask(row.id, { ...row, status: newStatus as TaskStatus })
+    row.status = newStatus as TaskStatus
+    ElMessage.success(newStatus === '已完成' ? '任务已完成' : '任务已重置为待处理')
+  } catch (error) {
+    ElMessage.error('操作失败')
+  }
 }
 
 const handleEdit = (row: Task) => {

@@ -27,19 +27,19 @@
       </div>
 
       <!-- 表格 -->
-      <el-table :data="tableData" border stripe v-loading="loading">
-        <el-table-column label="公司名称" width="180">
+      <el-table :data="tableData" border stripe v-loading="loading" style="width: 100%">
+        <el-table-column label="公司名称" min-width="180">
           <template #default="{ row }">
             <el-link type="primary" @click="handleViewDetail(row)">{{ row.name }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="tax_number" label="税号" width="170" />
-        <el-table-column label="法定代表人" width="100">
+        <el-table-column prop="tax_number" label="税号" min-width="170" />
+        <el-table-column label="法定代表人" min-width="100">
           <template #default="{ row }">
             {{ row.representative?.name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="法人电话" width="120">
+        <el-table-column label="法人电话" min-width="120">
           <template #default="{ row }">
             <el-link v-if="row.representative?.phone" type="primary" @click="handleCopy(row.representative.phone)">
               {{ row.representative.phone }}
@@ -47,7 +47,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="法人密码" width="110">
+        <el-table-column label="法人密码" min-width="110">
           <template #default="{ row }">
             <el-link v-if="row.representative?.password" type="primary" @click="handleCopy(row.representative.password)">
               {{ row.representative.password }}
@@ -55,7 +55,7 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="taxpayer_type" label="纳税人类型" width="120">
+        <el-table-column prop="taxpayer_type" label="纳税人类型" min-width="120">
           <template #default="{ row }">
             <el-tag v-if="row.taxpayer_type" :type="row.taxpayer_type === '一般纳税人' ? 'success' : 'warning'" size="small">
               {{ row.taxpayer_type }}
@@ -63,10 +63,10 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="tax_office" label="税务所" width="120" show-overflow-tooltip />
-        <el-table-column prop="tax_administrator" label="管理员" width="100" show-overflow-tooltip />
-        <el-table-column prop="tax_administrator_phone" label="管理员电话" width="120" />
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column prop="tax_office" label="税务所" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="tax_administrator" label="管理员" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="tax_administrator_phone" label="管理员电话" min-width="120" />
+        <el-table-column label="操作" min-width="180" fixed="right">
           <template #default="{ row }">
             <el-button type="info" size="small" @click="handleViewDetail(row)">详情</el-button>
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>

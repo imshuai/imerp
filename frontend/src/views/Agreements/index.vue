@@ -34,31 +34,31 @@
       </div>
 
       <!-- 表格 -->
-      <el-table :data="tableData" border stripe v-loading="loading">
-        <el-table-column prop="agreement_number" label="协议编号" width="150" />
-        <el-table-column prop="customer.name" label="客户名称" width="200" />
-        <el-table-column prop="fee_type" label="收费类型" width="100" />
-        <el-table-column prop="amount" label="服务费" width="100">
+      <el-table :data="tableData" border stripe v-loading="loading" style="width: 100%">
+        <el-table-column prop="agreement_number" label="协议编号" min-width="150" />
+        <el-table-column prop="customer.name" label="客户名称" min-width="200" />
+        <el-table-column prop="fee_type" label="收费类型" min-width="100" />
+        <el-table-column prop="amount" label="服务费" min-width="100">
           <template #default="{ row }">
             ¥{{ row.amount.toLocaleString() }}
           </template>
         </el-table-column>
-        <el-table-column prop="start_date" label="开始日期" width="110">
+        <el-table-column prop="start_date" label="开始日期" min-width="110">
           <template #default="{ row }">
             {{ formatDate(row.start_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="end_date" label="结束日期" width="110">
+        <el-table-column prop="end_date" label="结束日期" min-width="110">
           <template #default="{ row }">
             {{ formatDate(row.end_date) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="status" label="状态" min-width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusTagType(row.status)">{{ row.status }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" min-width="150" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button type="danger" size="small" @click="handleDelete(row)">删除</el-button>
@@ -201,7 +201,26 @@ const form = reactive<Partial<Agreement>>({
 })
 
 const rules = {
-  agreement_number: [{ required: true, message: '请输入协议编号', trigger: 'blur' }],
+  agreement_number: [
+    {
+      required: true,
+      message: '请输入协议编号',
+      trigger: 'blur',
+      validator: (rule: any, value: any, callback: any) => {
+        // 新增时协议编号自动生成，不需要验证
+        if (!isEdit.value) {
+          callback()
+          return
+        }
+        // 编辑时需要验证
+        if (!value || value.trim() === '') {
+          callback(new Error('请输入协议编号'))
+        } else {
+          callback()
+        }
+      }
+    }
+  ],
   customer_id: [{ required: true, message: '请输入客户ID', trigger: 'blur' }],
   fee_type: [{ required: true, message: '请选择收费类型', trigger: 'change' }],
   amount: [{ required: true, message: '请输入服务费金额', trigger: 'blur' }],
