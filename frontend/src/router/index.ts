@@ -30,6 +30,12 @@ const router = createRouter({
           meta: { title: '人员管理', icon: 'User' }
         },
         {
+          path: 'service-personnel',
+          name: 'ServicePersonnel',
+          component: () => import('@/views/ServicePersonnel/index.vue'),
+          meta: { title: '服务人员管理', icon: 'User' }
+        },
+        {
           path: 'customers',
           name: 'Customers',
           component: () => import('@/views/Customers/index.vue'),

@@ -124,10 +124,15 @@ func GetCustomers(c *gin.Context) {
 	// 获取总数
 	query.Count(&total)
 
-	// 获取列表
+	// 获取列表（关联数据通过loadCustomerRelations手动加载）
 	if err := query.Find(&customers).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to fetch customers: "+err.Error())
 		return
+	}
+
+	// 为每个客户加载关联的服务人员信息
+	for i := range customers {
+		loadCustomerRelations(&customers[i])
 	}
 
 	SuccessPaginatedResponse(c, total, customers)

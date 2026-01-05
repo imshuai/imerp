@@ -84,7 +84,23 @@
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入任务描述" />
         </el-form-item>
         <el-form-item label="关联客户" prop="customer_id">
-          <el-input-number v-model="form.customer_id" :min="1" placeholder="请输入客户ID" style="width: 100%" />
+          <el-select
+            v-model="form.customer_id"
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入客户名称搜索"
+            :remote-method="searchCustomers"
+            :loading="customerLoading"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in customerOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" placeholder="请选择状态" style="width: 100%">
@@ -116,7 +132,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getTasks, createTask, updateTask, deleteTask } from '@/api/tasks'
+import { getCustomers } from '@/api/customers'
 import type { Task, TaskStatus } from '@/api/tasks'
+import type { Customer } from '@/api/customers'
 
 const loading = ref(false)
 const tableData = ref<Task[]>([])
@@ -124,6 +142,10 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+
+// 客户搜索相关
+const customerOptions = ref<Customer[]>([])
+const customerLoading = ref(false)
 
 const searchForm = reactive({
   keyword: '',
@@ -163,6 +185,21 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
 
+// 搜索客户
+const searchCustomers = async (query: string) => {
+  if (!query) {
+    customerOptions.value = []
+    return
+  }
+  customerLoading.value = true
+  try {
+    const res = await getCustomers({ keyword: query })
+    customerOptions.value = res.items
+  } finally {
+    customerLoading.value = false
+  }
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -199,6 +236,7 @@ const handleAdd = () => {
     status: '待处理',
     due_date: ''
   })
+  customerOptions.value = []
   dialogVisible.value = true
 }
 

@@ -30,6 +30,33 @@
       <el-table :data="tableData" border stripe v-loading="loading">
         <el-table-column prop="name" label="公司名称" width="200" />
         <el-table-column prop="tax_number" label="税号" width="180" />
+        <!-- 法定代表人姓名（可点击查看详情） -->
+        <el-table-column label="法定代表人" width="120">
+          <template #default="{ row }">
+            <el-link v-if="row.representative" type="primary" @click="handleViewPerson(row.representative)">
+              {{ row.representative.name }}
+            </el-link>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <!-- 法定代表人电话（可点击复制） -->
+        <el-table-column label="法人电话" width="130">
+          <template #default="{ row }">
+            <el-link v-if="row.representative" type="primary" @click="handleCopy(row.representative.phone)">
+              {{ row.representative.phone }}
+            </el-link>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <!-- 法定代表人密码（明文显示，可点击复制） -->
+        <el-table-column label="法人密码" width="120">
+          <template #default="{ row }">
+            <el-link v-if="row.representative" type="primary" @click="handleCopy(row.representative.password)">
+              {{ row.representative.password }}
+            </el-link>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="type" label="客户类型" width="120">
           <template #default="{ row }">
             <el-tag>{{ row.type }}</el-tag>
@@ -94,10 +121,98 @@
         <el-form-item label="注册资本">
           <el-input-number v-model="form.registered_capital" :min="0" style="width: 100%" />
         </el-form-item>
+        <!-- 法定代表人 -->
+        <el-form-item label="法定代表人">
+          <el-select
+            v-model="form.representative_id"
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入姓名搜索"
+            :remote-method="searchRepresentatives"
+            :loading="representativeLoading"
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in representativeOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <!-- 投资人（多选） -->
+        <el-form-item label="投资人">
+          <el-select
+            v-model="investorIds"
+            filterable
+            remote
+            multiple
+            reserve-keyword
+            placeholder="请输入姓名搜索"
+            :remote-method="searchInvestors"
+            :loading="investorLoading"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in investorOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <!-- 服务人员（多选） -->
+        <el-form-item label="服务人员">
+          <el-select
+            v-model="servicePersonIds"
+            filterable
+            remote
+            multiple
+            reserve-keyword
+            placeholder="请输入姓名搜索"
+            :remote-method="searchServicePersons"
+            :loading="servicePersonLoading"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in servicePersonOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 人员详情弹窗 -->
+    <el-dialog v-model="personDialogVisible" title="人员详情" width="500px" @close="handlePersonDialogClose">
+      <el-form :model="personForm" label-width="100px">
+        <el-form-item label="姓名">
+          <el-input v-model="personForm.name" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-input v-model="personForm.type" disabled />
+        </el-form-item>
+        <el-form-item label="电话">
+          <el-input v-model="personForm.phone" />
+        </el-form-item>
+        <el-form-item label="身份证号">
+          <el-input v-model="personForm.id_card" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="personForm.password" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="personDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSavePerson">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -107,14 +222,29 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '@/api/customers'
+import { getPeople } from '@/api/people'
 import type { Customer } from '@/api/customers'
+import type { Person } from '@/api/people'
+import { smartCopy } from '@/utils/clipboard'
 
 const loading = ref(false)
 const tableData = ref<Customer[]>([])
 const dialogVisible = ref(false)
+const personDialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+
+// 人员搜索相关
+const representativeOptions = ref<Person[]>([])
+const investorOptions = ref<Person[]>([])
+const servicePersonOptions = ref<Person[]>([])
+const representativeLoading = ref(false)
+const investorLoading = ref(false)
+const servicePersonLoading = ref(false)
+const investorIds = ref<number[]>([])
+const servicePersonIds = ref<number[]>([])
+const personForm = reactive<Partial<Person>>({})
 
 const searchForm = reactive({
   keyword: ''
@@ -132,7 +262,8 @@ const form = reactive<Partial<Customer>>({
   address: '',
   tax_number: '',
   type: '有限公司',
-  registered_capital: 0
+  registered_capital: 0,
+  representative_id: undefined
 })
 
 const rules = {
@@ -156,6 +287,60 @@ const loadData = async () => {
   }
 }
 
+// 搜索法定代表人
+const searchRepresentatives = async (query: string) => {
+  if (!query) {
+    representativeOptions.value = []
+    return
+  }
+  representativeLoading.value = true
+  try {
+    const res = await getPeople({
+      keyword: query,
+      type: '法定代表人'
+    })
+    representativeOptions.value = res.items
+  } finally {
+    representativeLoading.value = false
+  }
+}
+
+// 搜索投资人
+const searchInvestors = async (query: string) => {
+  if (!query) {
+    investorOptions.value = []
+    return
+  }
+  investorLoading.value = true
+  try {
+    const res = await getPeople({
+      keyword: query,
+      type: '投资人'
+    })
+    investorOptions.value = res.items
+  } finally {
+    investorLoading.value = false
+  }
+}
+
+// 搜索服务人员
+const searchServicePersons = async (query: string) => {
+  if (!query) {
+    servicePersonOptions.value = []
+    return
+  }
+  servicePersonLoading.value = true
+  try {
+    const res = await getPeople({
+      keyword: query,
+      type: '服务人员'
+    })
+    servicePersonOptions.value = res.items
+  } finally {
+    servicePersonLoading.value = false
+  }
+}
+
 const handleSearch = () => {
   pagination.page = 1
   loadData()
@@ -174,14 +359,27 @@ const handleAdd = () => {
     address: '',
     tax_number: '',
     type: '有限公司',
-    registered_capital: 0
+    registered_capital: 0,
+    representative_id: undefined
   })
+  investorIds.value = []
+  servicePersonIds.value = []
+  representativeOptions.value = []
+  investorOptions.value = []
+  servicePersonOptions.value = []
   dialogVisible.value = true
 }
 
 const handleEdit = (row: Customer) => {
   isEdit.value = true
   Object.assign(form, row)
+  // 设置已选中的投资人和服务人员
+  if (row.investor_list) {
+    investorIds.value = row.investor_list.map((p: Person) => p.id)
+  }
+  if (row.service_persons) {
+    servicePersonIds.value = row.service_persons.map((p: Person) => p.id)
+  }
   dialogVisible.value = true
 }
 
@@ -201,11 +399,23 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
+    // 构建投资人JSON
+    const investors = investorIds.value.map(id => ({
+      person_id: id,
+      share_ratio: 0
+    }))
+
+    const submitData = {
+      ...form,
+      investors: JSON.stringify(investors),
+      service_person_ids: servicePersonIds.value.join(',')
+    }
+
     if (isEdit.value) {
-      await updateCustomer(form.id!, form)
+      await updateCustomer(form.id!, submitData)
       ElMessage.success('更新成功')
     } else {
-      await createCustomer(form)
+      await createCustomer(submitData)
       ElMessage.success('创建成功')
     }
     dialogVisible.value = false
@@ -219,6 +429,24 @@ const handleDialogClose = () => {
   formRef.value?.resetFields()
 }
 
+// 查看人员详情
+const handleViewPerson = (person: Person) => {
+  Object.assign(personForm, person)
+  personDialogVisible.value = true
+}
+
+// 保存人员信息
+const handleSavePerson = async () => {
+  // TODO: 实现人员信息更新API
+  ElMessage.success('人员信息已保存')
+  personDialogVisible.value = false
+  loadData()
+}
+
+const handlePersonDialogClose = () => {
+  Object.assign(personForm, {})
+}
+
 const handlePageChange = (page: number) => {
   pagination.page = page
   loadData()
@@ -227,6 +455,10 @@ const handlePageChange = (page: number) => {
 const handleSizeChange = (size: number) => {
   pagination.pageSize = size
   loadData()
+}
+
+const handleCopy = async (text: string) => {
+  await smartCopy(text)
 }
 
 onMounted(() => {

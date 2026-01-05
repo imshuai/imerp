@@ -88,7 +88,23 @@
     >
       <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
         <el-form-item label="关联客户" prop="customer_id">
-          <el-input-number v-model="form.customer_id" :min="1" style="width: 100%" />
+          <el-select
+            v-model="form.customer_id"
+            filterable
+            remote
+            reserve-keyword
+            placeholder="请输入客户名称搜索"
+            :remote-method="searchCustomers"
+            :loading="customerLoading"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in customerOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="收款金额" prop="amount">
           <el-input-number v-model="form.amount" :min="0" :precision="2" style="width: 100%" />
@@ -130,7 +146,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { getPayments, createPayment, updatePayment, deletePayment } from '@/api/payments'
+import { getCustomers } from '@/api/customers'
 import type { Payment } from '@/api/payments'
+import type { Customer } from '@/api/customers'
 
 const loading = ref(false)
 const tableData = ref<Payment[]>([])
@@ -138,6 +156,10 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+
+// 客户搜索相关
+const customerOptions = ref<Customer[]>([])
+const customerLoading = ref(false)
 
 const searchForm = reactive({
   start_date: '',
@@ -169,6 +191,21 @@ const rules = {
 
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString('zh-CN')
+}
+
+// 搜索客户
+const searchCustomers = async (query: string) => {
+  if (!query) {
+    customerOptions.value = []
+    return
+  }
+  customerLoading.value = true
+  try {
+    const res = await getCustomers({ keyword: query })
+    customerOptions.value = res.items
+  } finally {
+    customerLoading.value = false
+  }
 }
 
 const loadData = async () => {
@@ -209,6 +246,7 @@ const handleAdd = () => {
     period: '',
     remark: ''
   })
+  customerOptions.value = []
   dialogVisible.value = true
 }
 
