@@ -28,7 +28,7 @@ GET /api/people
 **查询参数**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| type | string | 否 | 人员类型 (法定代表人/投资人/服务人员/混合角色) |
+| is_service_person | boolean | 否 | 是否为服务人员 |
 | keyword | string | 否 | 搜索关键词（匹配姓名、电话、身份证） |
 
 **响应示例**
@@ -41,7 +41,7 @@ GET /api/people
     "items": [
       {
         "id": 1,
-        "type": "法定代表人",
+        "is_service_person": false,
         "name": "张三",
         "phone": "13800138000",
         "id_card": "110101199001011234",
@@ -68,7 +68,7 @@ Content-Type: application/json
 **请求体**
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| type | string | 是 | 人员类型 |
+| is_service_person | boolean | 否 | 是否为服务人员（默认 false） |
 | name | string | 是 | 姓名 |
 | phone | string | 是 | 电话 |
 | id_card | string | 是 | 身份证号（唯一） |
@@ -77,19 +77,13 @@ Content-Type: application/json
 **请求体示例**
 ```json
 {
-  "type": "法定代表人",
+  "is_service_person": false,
   "name": "张三",
   "phone": "13800138000",
   "id_card": "110101199001011234",
   "password": "abc123"
 }
 ```
-
-**人员类型 (type)**
-- `法定代表人` - 企业法人代表
-- `投资人` - 企业股东
-- `服务人员` - 服务该客户的员工
-- `混合角色` - 同时担任多个角色
 
 **响应示例**
 ```json
@@ -98,7 +92,7 @@ Content-Type: application/json
   "message": "success",
   "data": {
     "id": 1,
-    "type": "法定代表人",
+    "is_service_person": false,
     "name": "张三",
     "phone": "13800138000",
     "id_card": "110101199001011234",
@@ -123,7 +117,7 @@ GET /api/people/:id
   "data": {
     "person": {
       "id": 1,
-      "type": "法定代表人",
+      "is_service_person": false,
       "name": "张三",
       "phone": "13800138000",
       "id_card": "110101199001011234",
@@ -167,7 +161,7 @@ Content-Type: application/json
   "message": "success",
   "data": {
     "id": 1,
-    "type": "法定代表人",
+    "is_service_person": false,
     "name": "张三丰",
     "phone": "13800138001",
     "id_card": "110101199001011234",
@@ -1325,7 +1319,7 @@ GET /api/export/customers
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | uint | 主键 |
-| type | string | 人员类型（法定代表人/投资人/服务人员/混合角色） |
+| is_service_person | boolean | 是否为服务人员 |
 | name | string | 姓名 |
 | phone | string | 电话 |
 | id_card | string | 身份证号（唯一） |
@@ -1333,6 +1327,12 @@ GET /api/export/customers
 | representative_customer_ids | string | 担任法人的企业ID（逗号分隔） |
 | investor_customer_ids | string | 持股的企业ID（逗号分隔） |
 | service_customer_ids | string | 服务的企业ID（逗号分隔） |
+
+**人员角色说明：**
+- **服务人员**: `is_service_person = true` 的人员
+- **法定代表人**: `representative_customer_ids` 不为空的人员
+- **投资人**: `investor_customer_ids` 不为空的人员
+- 一个人可以同时担任多个角色（既是投资人又是服务人员等）
 
 ### Customer (客户)
 | 字段 | 类型 | 说明 |
