@@ -1,12 +1,14 @@
 package routes
 
 import (
+	"erp/config"
 	"erp/embedded"
 	"io/fs"
 	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
 
 // SetupFrontendRoutes 配置前端路由
@@ -14,9 +16,10 @@ func SetupFrontendRoutes(r *gin.Engine) {
 	// 获取嵌入的文件系统
 	distFS, err := fs.Sub(embedded.DistFS(), "dist")
 	if err != nil {
+		config.Warn("Failed to create sub filesystem", zap.String("error", err.Error()))
 		// 如果没有构建产物，返回提示信息
 		r.NoRoute(func(c *gin.Context) {
-			c.HTML(200, "", `
+			c.Data(200, "text/html; charset=utf-8", []byte(`
 			<!DOCTYPE html>
 			<html>
 			<head>
@@ -37,7 +40,7 @@ func SetupFrontendRoutes(r *gin.Engine) {
 				</div>
 			</body>
 			</html>
-			`)
+			`))
 		})
 		return
 	}
