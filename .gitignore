@@ -1,36 +1,31 @@
-# 编译生成的二进制文件
+# Go
 erp
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
 
-# 数据库文件
+# 数据库
 database/*.db
 database/*.db-shm
 database/*.db-wal
 
-# 测试文件
-*.test
+# 前端
+node_modules/
+frontend/node_modules/
+embedded/dist/
+frontend/dist/
 
-# 输出目录
-bin/
-dist/
-
-# 依赖工具
-vendor/
-
-# IDE配置
+# 编辑器
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# 系统文件
+# OS
 .DS_Store
 Thumbs.db
 
-# 日志文件
+# 日志
 *.log

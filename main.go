@@ -35,8 +35,13 @@ func main() {
 	// 设置路由
 	routes.SetupRoutes(r)
 
+	// 设置前端路由（放在最后，作为fallback）
+	routes.SetupFrontendRoutes(r)
+
 	// 启动服务
 	log.Println("Server starting on :8080")
+	log.Println("Frontend URL: http://localhost:8080")
+	log.Println("API URL: http://localhost:8080/api")
 	if err := r.Run(":8080"); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
