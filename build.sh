@@ -157,7 +157,7 @@ if [ "$BUILD_BACKEND" = true ]; then
         export GOOS="$GOOS"
         export GOARCH="$GOARCH"
         [ -n "$GOARM" ] && export GOARM="$GOARM"
-        export CGO_ENABLED=1
+        export CGO_ENABLED=0
 
         # Build
         go build -o "$OUTPUT_NAME" -ldflags="-s -w" main.go

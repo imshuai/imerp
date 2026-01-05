@@ -101,7 +101,7 @@ if ($BUILD_BACKEND) {
     }
 
     # Set environment variables
-    $env:CGO_ENABLED = "1"
+    $env:CGO_ENABLED = "0"
 
     # Build for each target
     foreach ($TARGET in $Targets) {

@@ -160,7 +160,7 @@ if "%BUILD_BACKEND%"=="true" (
         )
 
         REM Set build environment and compile
-        set "CGO_ENABLED=1"
+        set "CGO_ENABLED=0"
         set "GOOS=!GOOS!"
         set "GOARCH=!GOARCH!"
         if defined GOARM set "GOARM=!GOARM!"
