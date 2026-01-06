@@ -3,9 +3,13 @@ package controllers
 import (
 	"erp/config"
 	"erp/models"
+	"encoding/json"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateAgreement 创建协议
@@ -16,10 +20,26 @@ func CreateAgreement(c *gin.Context) {
 		return
 	}
 
+	// 如果协议编号为空，自动生成
+	if agreement.AgreementNumber == "" {
+		number, err := GenerateAgreementNumber(config.DB)
+		if err != nil {
+			ErrorResponse(c, 500, "Failed to generate agreement number: "+err.Error())
+			return
+		}
+		agreement.AgreementNumber = number
+	}
+
 	if err := config.DB.Create(&agreement).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to create agreement: "+err.Error())
 		return
 	}
+
+	// 重新获取完整的协议数据
+	config.DB.Preload("Customer").First(&agreement, agreement.ID)
+
+	// 记录操作日志
+	LogOperation(c, "create", "agreement", &agreement.ID, agreement.AgreementNumber, nil, agreement)
 
 	SuccessResponse(c, agreement)
 }
@@ -100,11 +120,21 @@ func UpdateAgreement(c *gin.Context) {
 		return
 	}
 
+	agreementID := uint(id)
+
+	// 使用 JSON 深拷贝保存旧值
+	oldValueJSON, _ := json.Marshal(agreement)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
+
 	// 更新字段
 	config.DB.Model(&agreement).Updates(updateData)
 
 	// 重新获取更新后的数据
 	config.DB.Preload("Customer").First(&agreement, id)
+
+	// 记录操作日志
+	LogOperation(c, "update", "agreement", &agreementID, agreement.AgreementNumber, oldValueMap, agreement)
 
 	SuccessResponse(c, agreement)
 }
@@ -117,10 +147,52 @@ func DeleteAgreement(c *gin.Context) {
 		return
 	}
 
+	var agreement models.Agreement
+	if err := config.DB.First(&agreement, id).Error; err != nil {
+		ErrorResponse(c, 404, "Agreement not found")
+		return
+	}
+
+	agreementID := uint(id)
+
 	if err := config.DB.Delete(&models.Agreement{}, id).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to delete agreement: "+err.Error())
 		return
 	}
 
+	// 记录操作日志
+	LogOperation(c, "delete", "agreement", &agreementID, agreement.AgreementNumber, agreement, nil)
+
 	SuccessResponse(c, gin.H{"message": "Agreement deleted successfully"})
+}
+
+// ============ 辅助函数 ============
+
+// GenerateAgreementNumber 生成协议编号
+// 格式: AGT + YYYYMMDD + 4位序号
+// 例如: AGT202601050001
+func GenerateAgreementNumber(db *gorm.DB) (string, error) {
+	now := time.Now()
+	dateStr := now.Format("20060102")
+
+	// 查询当天最大的协议编号
+	prefix := "AGT" + dateStr
+	var lastAgreement models.Agreement
+	err := db.Where("agreement_number LIKE ?", prefix+"%").Order("agreement_number DESC").First(&lastAgreement).Error
+
+	serialNum := 1
+	if err == nil {
+		// 提取序号部分
+		lastNumber := lastAgreement.AgreementNumber
+		if len(lastNumber) >= len(prefix)+4 {
+			serialStr := lastNumber[len(prefix):]
+			if num, err := strconv.ParseInt(serialStr, 10, 32); err == nil {
+				serialNum = int(num) + 1
+			}
+		}
+	}
+
+	// 生成新编号：AGT + YYYYMMDD + 4位序号（补零）
+	newNumber := fmt.Sprintf("%s%04d", prefix, serialNum)
+	return newNumber, nil
 }

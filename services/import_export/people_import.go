@@ -70,7 +70,7 @@ func (s *PeopleImportService) ImportPeopleFromExcel(filePath string, strategy Im
 	}
 
 	// 验证必需的列
-	requiredColumns := []string{"姓名", "类型", "电话", "身份证号"}
+	requiredColumns := []string{"姓名", "电话", "身份证号"}
 	for _, col := range requiredColumns {
 		if _, exists := colIndex[col]; !exists {
 			return nil, fmt.Errorf("缺少必需的列: %s", col)
@@ -110,11 +110,11 @@ func (s *PeopleImportService) ImportPeopleFromExcel(filePath string, strategy Im
 
 // PersonRowData 人员行数据
 type PersonRowData struct {
-	Name     string
-	Type     string
-	Phone    string
-	IDCard   string
-	Password string
+	Name            string
+	IsServicePerson bool
+	Phone           string
+	IDCard          string
+	Password        string
 }
 
 // parsePersonRow 解析人员行数据
@@ -128,41 +128,27 @@ func (s *PeopleImportService) parsePersonRow(row []string, colIndex map[string]i
 	}
 
 	data := &PersonRowData{
-		Name:     getCell("姓名"),
-		Type:     getCell("类型"),
-		Phone:    getCell("电话"),
-		IDCard:   getCell("身份证号"),
-		Password: getCell("登录密码"),
+		Name:            getCell("姓名"),
+		Phone:           getCell("电话"),
+		IDCard:          getCell("身份证号"),
+		Password:        getCell("登录密码"),
+		IsServicePerson: false, // 默认值
+	}
+
+	// 解析"是否服务人员"列（如果存在）
+	if isServicePersonCell := getCell("是否服务人员"); isServicePersonCell != "" {
+		data.IsServicePerson = isServicePersonCell == "是" || isServicePersonCell == "true" || isServicePersonCell == "1" || isServicePersonCell == "TRUE"
 	}
 
 	// 验证必填字段
 	if data.Name == "" {
 		return nil, &ImportError{Row: rowNum, Column: "姓名", Message: "姓名不能为空"}
 	}
-	if data.Type == "" {
-		return nil, &ImportError{Row: rowNum, Column: "类型", Message: "类型不能为空"}
-	}
 	if data.Phone == "" {
 		return nil, &ImportError{Row: rowNum, Column: "电话", Message: "电话不能为空"}
 	}
 	if data.IDCard == "" {
 		return nil, &ImportError{Row: rowNum, Column: "身份证号", Message: "身份证号不能为空"}
-	}
-
-	// 验证类型枚举值
-	validTypes := []string{"法定代表人", "投资人", "服务人员", "混合角色"}
-	validType := false
-	for _, vt := range validTypes {
-		if data.Type == vt {
-			validType = true
-			break
-		}
-	}
-	if !validType {
-		return nil, &ImportError{
-			Row: rowNum, Column: "类型",
-			Message: fmt.Sprintf("类型必须是以下之一: %s", strings.Join(validTypes, "、")),
-		}
 	}
 
 	// 如果没有密码，设置默认密码
@@ -177,7 +163,7 @@ func (s *PeopleImportService) parsePersonRow(row []string, colIndex map[string]i
 func (s *PeopleImportService) importPerson(data *PersonRowData, strategy ImportStrategy, rowNum int, result *ImportResult) *ImportError {
 	// 查询是否已存在
 	var existingPerson map[string]interface{}
-	err := s.db.Raw("SELECT id, type FROM people WHERE id_card = ?", data.IDCard).Scan(&existingPerson).Error
+	err := s.db.Raw("SELECT id FROM people WHERE id_card = ?", data.IDCard).Scan(&existingPerson).Error
 	isConflict := err == nil && existingPerson != nil
 
 	if isConflict {
@@ -190,10 +176,10 @@ func (s *PeopleImportService) importPerson(data *PersonRowData, strategy ImportS
 			err := s.db.Table("people").
 				Where("id_card = ?", data.IDCard).
 				Updates(map[string]interface{}{
-					"name":   data.Name,
-					"type":   data.Type,
-					"phone":  data.Phone,
-					"password": data.Password,
+					"name":              data.Name,
+					"is_service_person": data.IsServicePerson,
+					"phone":             data.Phone,
+					"password":          data.Password,
 				}).Error
 			if err != nil {
 				return &ImportError{Row: rowNum, Column: "", Message: fmt.Sprintf("更新失败: %v", err)}
@@ -218,8 +204,8 @@ func (s *PeopleImportService) importPerson(data *PersonRowData, strategy ImportS
 
 	// 插入新记录
 	err = s.db.Table("people").Create(map[string]interface{}{
-		"type":                        data.Type,
 		"name":                        data.Name,
+		"is_service_person":           data.IsServicePerson,
 		"phone":                       data.Phone,
 		"id_card":                     data.IDCard,
 		"password":                    data.Password,

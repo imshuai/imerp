@@ -3,6 +3,8 @@ package controllers
 import (
 	"erp/config"
 	"erp/models"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -21,6 +23,13 @@ func CreatePayment(c *gin.Context) {
 		ErrorResponse(c, 500, "Failed to create payment: "+err.Error())
 		return
 	}
+
+	// 重新获取完整的收款记录数据
+	config.DB.Preload("Customer").Preload("Agreement").First(&payment, payment.ID)
+
+	// 记录操作日志
+	paymentName := fmt.Sprintf("%s - %.2f元", payment.PaymentDate.Format("2006-01-02"), payment.Amount)
+	LogOperation(c, "create", "payment", &payment.ID, paymentName, nil, payment)
 
 	SuccessResponse(c, payment)
 }
@@ -103,11 +112,22 @@ func UpdatePayment(c *gin.Context) {
 		return
 	}
 
+	paymentID := uint(id)
+
+	// 使用 JSON 深拷贝保存旧值
+	oldValueJSON, _ := json.Marshal(payment)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
+
 	// 更新字段
 	config.DB.Model(&payment).Updates(updateData)
 
 	// 重新获取更新后的数据
 	config.DB.Preload("Customer").Preload("Agreement").First(&payment, id)
+
+	// 记录操作日志
+	paymentName := fmt.Sprintf("%s - %.2f元", payment.PaymentDate.Format("2006-01-02"), payment.Amount)
+	LogOperation(c, "update", "payment", &paymentID, paymentName, oldValueMap, payment)
 
 	SuccessResponse(c, payment)
 }
@@ -120,10 +140,22 @@ func DeletePayment(c *gin.Context) {
 		return
 	}
 
+	var payment models.Payment
+	if err := config.DB.First(&payment, id).Error; err != nil {
+		ErrorResponse(c, 404, "Payment not found")
+		return
+	}
+
+	paymentID := uint(id)
+
 	if err := config.DB.Delete(&models.Payment{}, id).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to delete payment: "+err.Error())
 		return
 	}
+
+	// 记录操作日志
+	paymentName := fmt.Sprintf("%s - %.2f元", payment.PaymentDate.Format("2006-01-02"), payment.Amount)
+	LogOperation(c, "delete", "payment", &paymentID, paymentName, payment, nil)
 
 	SuccessResponse(c, gin.H{"message": "Payment deleted successfully"})
 }

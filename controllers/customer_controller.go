@@ -26,6 +26,12 @@ func CreateCustomer(c *gin.Context) {
 	// 同步更新Person表的关联字段
 	syncPersonRelations(&customer)
 
+	// 加载关联数据
+	loadCustomerRelations(&customer)
+
+	// 记录操作日志
+	LogOperation(c, "create", "customer", &customer.ID, customer.Name, nil, customer)
+
 	SuccessResponse(c, customer)
 }
 
@@ -53,8 +59,7 @@ func GetCustomers(c *gin.Context) {
 		// 先查找符合条件的人员ID
 		var personIDs []uint
 		config.DB.Model(&models.Person{}).
-			Where("type IN ? AND (name LIKE ? OR phone LIKE ? OR id_card LIKE ?)",
-				[]models.PersonType{models.PersonTypeRepresentative, models.PersonTypeMixed},
+			Where("name LIKE ? OR phone LIKE ? OR id_card LIKE ?",
 				"%"+representative+"%", "%"+representative+"%", "%"+representative+"%").
 			Pluck("id", &personIDs)
 
@@ -79,11 +84,10 @@ func GetCustomers(c *gin.Context) {
 				WHERE json_valid(investors)
 				AND CAST(json_extract(value, '$.person_id') AS INTEGER) IN (
 					SELECT id FROM people
-					WHERE type IN ? AND (name LIKE ? OR phone LIKE ? OR id_card LIKE ?)
+					WHERE name LIKE ? OR phone LIKE ? OR id_card LIKE ?
 				)
 			)
-		`, []models.PersonType{models.PersonTypeInvestor, models.PersonTypeMixed},
-			"%"+investor+"%", "%"+investor+"%", "%"+investor+"%").Scan(&customerIDs)
+		`, "%"+investor+"%", "%"+investor+"%", "%"+investor+"%").Scan(&customerIDs)
 
 		if len(customerIDs) > 0 {
 			query = query.Where("id IN ?", customerIDs)
@@ -98,9 +102,8 @@ func GetCustomers(c *gin.Context) {
 		// 先查找符合条件的人员ID
 		var personIDs []uint
 		config.DB.Model(&models.Person{}).
-			Where("type IN ? AND (name LIKE ? OR phone LIKE ?)",
-				[]models.PersonType{models.PersonTypeServicePerson, models.PersonTypeMixed},
-				"%"+servicePerson+"%", "%"+servicePerson+"%").
+			Where("is_service_person = ? AND (name LIKE ? OR phone LIKE ?)",
+				true, "%"+servicePerson+"%", "%"+servicePerson+"%").
 			Pluck("id", &personIDs)
 
 		if len(personIDs) > 0 {
@@ -124,10 +127,15 @@ func GetCustomers(c *gin.Context) {
 	// 获取总数
 	query.Count(&total)
 
-	// 获取列表
+	// 获取列表（关联数据通过loadCustomerRelations手动加载）
 	if err := query.Find(&customers).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to fetch customers: "+err.Error())
 		return
+	}
+
+	// 为每个客户加载关联的服务人员信息
+	for i := range customers {
+		loadCustomerRelations(&customers[i])
 	}
 
 	SuccessPaginatedResponse(c, total, customers)
@@ -142,16 +150,14 @@ func GetCustomer(c *gin.Context) {
 	}
 
 	var customer models.Customer
-	if err := config.DB.First(&customer, id).Error; err != nil {
+	// 使用Preload一次性加载所有关联数据
+	if err := config.DB.Preload("Tasks").Preload("Payments").First(&customer, id).Error; err != nil {
 		ErrorResponse(c, 404, "Customer not found")
 		return
 	}
 
 	// 加载关联的人员信息
 	loadCustomerRelations(&customer)
-
-	// 加载原有关联
-	config.DB.Preload("Tasks").Preload("Payments").First(&customer, id)
 
 	SuccessResponse(c, customer)
 }
@@ -176,15 +182,31 @@ func UpdateCustomer(c *gin.Context) {
 		return
 	}
 
+	customerID := uint(id)
+
+	// 先加载关联信息，这样旧值的service_person_ids也能转换为名字
+	loadCustomerRelations(&customer)
+
+	// 使用 JSON 深拷贝保存旧值，避免后续修改影响
+	oldValueJSON, _ := json.Marshal(customer)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
+
+	// 清理旧值中的关联字段，service_person_ids会转换为名字数组
+	oldValueMap = cleanAssociationsForAudit(oldValueMap)
+
 	// 更新字段
 	config.DB.Model(&customer).Updates(updateData)
 
-	// 同步更新Person表的关联字段
+	// 同步更新Person表的关联字段（不记录审计日志）
 	syncPersonRelations(&updateData)
 
 	// 重新获取更新后的数据
 	config.DB.First(&customer, id)
 	loadCustomerRelations(&customer)
+
+	// 记录操作日志
+	LogOperation(c, "update", "customer", &customerID, customer.Name, oldValueMap, customer)
 
 	SuccessResponse(c, customer)
 }
@@ -197,13 +219,20 @@ func DeleteCustomer(c *gin.Context) {
 		return
 	}
 
+	var customer models.Customer
+	if err := config.DB.First(&customer, id).Error; err != nil {
+		ErrorResponse(c, 404, "Customer not found")
+		return
+	}
+
+	customerID := uint(id)
+
 	if err := config.DB.Delete(&models.Customer{}, id).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to delete customer: "+err.Error())
 		return
 	}
 
 	// 清理Person表中的关联ID
-	customerID := uint(id)
 	config.DB.Model(&models.Person{}).
 		Where("representative_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
 		Update("representative_customer_ids", gorm.Expr("REPLACE(representative_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
@@ -215,6 +244,9 @@ func DeleteCustomer(c *gin.Context) {
 	config.DB.Model(&models.Person{}).
 		Where("service_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
 		Update("service_customer_ids", gorm.Expr("REPLACE(service_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+
+	// 记录操作日志
+	LogOperation(c, "delete", "customer", &customerID, customer.Name, customer, nil)
 
 	SuccessResponse(c, gin.H{"message": "Customer deleted successfully"})
 }
@@ -266,17 +298,38 @@ func loadCustomerRelations(customer *models.Customer) {
 	}
 
 	// 加载投资人列表
-	if customer.Investors != nil {
+	// investors字段可能是JSON字符串（前端JSON.stringify的结果），需要先解析为字符串再解析为数组
+	if customer.Investors != nil && len(customer.Investors) > 0 {
 		var investorInfos []models.InvestorInfo
-		if err := json.Unmarshal(customer.Investors, &investorInfos); err == nil {
-			var investorIDs []uint
-			for _, info := range investorInfos {
-				investorIDs = append(investorIDs, info.PersonID)
+		var investorsJSON []byte
+
+		// 尝试直接解析（如果investors已经是JSON数组）
+		if err := json.Unmarshal(customer.Investors, &investorInfos); err != nil {
+			// 如果失败，尝试先解析为字符串（如果investors是JSON字符串）
+			var investorsStr string
+			if err2 := json.Unmarshal(customer.Investors, &investorsStr); err2 == nil {
+				investorsJSON = []byte(investorsStr)
+			} else {
+				// 如果还是失败，直接使用原始字节数组
+				investorsJSON = customer.Investors
 			}
-			if len(investorIDs) > 0 {
-				var investors []models.Person
-				config.DB.Where("id IN ?", investorIDs).Find(&investors)
-				customer.InvestorList = investors
+		} else {
+			// 直接解析成功，使用原始字节数组
+			investorsJSON = customer.Investors
+		}
+
+		// 解析投资人信息
+		if len(investorsJSON) > 0 {
+			if err := json.Unmarshal(investorsJSON, &investorInfos); err == nil {
+				var investorIDs []uint
+				for _, info := range investorInfos {
+					investorIDs = append(investorIDs, info.PersonID)
+				}
+				if len(investorIDs) > 0 {
+					var investors []models.Person
+					config.DB.Where("id IN ?", investorIDs).Find(&investors)
+					customer.InvestorList = investors
+				}
 			}
 		}
 	}
@@ -312,8 +365,9 @@ func syncPersonRelations(customer *models.Customer) {
 		if config.DB.First(&rep, *customer.RepresentativeID).Error == nil {
 			ids := StringToIDs(rep.RepresentativeCustomerIDs)
 			ids = appendUniqueID(ids, customerID)
-			rep.RepresentativeCustomerIDs = IDsToString(ids)
-			config.DB.Save(&rep)
+			newIDs := IDsToString(ids)
+			// 只更新关联字段，不触发完整模型保存
+			config.DB.Model(&rep).Update("representative_customer_ids", newIDs)
 		}
 	}
 
@@ -326,8 +380,9 @@ func syncPersonRelations(customer *models.Customer) {
 				if config.DB.First(&inv, info.PersonID).Error == nil {
 					ids := StringToIDs(inv.InvestorCustomerIDs)
 					ids = appendUniqueID(ids, customerID)
-					inv.InvestorCustomerIDs = IDsToString(ids)
-					config.DB.Save(&inv)
+					newIDs := IDsToString(ids)
+					// 只更新关联字段，不触发完整模型保存
+					config.DB.Model(&inv).Update("investor_customer_ids", newIDs)
 				}
 			}
 		}
@@ -341,8 +396,9 @@ func syncPersonRelations(customer *models.Customer) {
 			if config.DB.First(&sp, personID).Error == nil {
 				customerIDs := StringToIDs(sp.ServiceCustomerIDs)
 				customerIDs = appendUniqueID(customerIDs, customerID)
-				sp.ServiceCustomerIDs = IDsToString(customerIDs)
-				config.DB.Save(&sp)
+				newIDs := IDsToString(customerIDs)
+				// 只更新关联字段，不触发完整模型保存
+				config.DB.Model(&sp).Update("service_customer_ids", newIDs)
 			}
 		}
 	}
@@ -356,4 +412,43 @@ func appendUniqueID(ids []uint, newID uint) []uint {
 		}
 	}
 	return append(ids, newID)
+}
+
+// cleanAssociationsForAudit 清理审计日志中的关联字段，将ID转换为名字
+func cleanAssociationsForAudit(m map[string]interface{}) map[string]interface{} {
+	// 在删除关联字段之前，尝试将ID字段转换为名字字段
+	// 处理 service_person_ids
+	if servicePersons, ok := m["service_persons"].([]interface{}); ok && len(servicePersons) > 0 {
+		var names []string
+		for _, sp := range servicePersons {
+			if spMap, ok := sp.(map[string]interface{}); ok {
+				if name, ok := spMap["name"].(string); ok {
+					names = append(names, name)
+				}
+			}
+		}
+		if len(names) > 0 {
+			m["service_person_ids"] = names
+		}
+	}
+
+	// 删除 GORM 关联对象字段
+	delete(m, "Customer")
+	delete(m, "Agreement")
+	delete(m, "Payments")
+	delete(m, "Tasks")
+	delete(m, "Representative")
+	delete(m, "InvestorList")
+	delete(m, "ServicePersons")
+	delete(m, "Agreements")
+	delete(m, "User")
+	delete(m, "Person")
+
+	// 删除由 loadCustomerRelations 等函数加载的关联列表字段
+	delete(m, "representative")
+	delete(m, "investor_list")
+	delete(m, "service_persons")
+	delete(m, "agreements_list")
+
+	return m
 }

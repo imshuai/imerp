@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 // TemplateService 模板服务
@@ -30,7 +31,7 @@ func (s *TemplateService) GeneratePeopleTemplate() ([]byte, string, error) {
 
 	// 设置表头
 	headers := []string{
-		"姓名", "类型", "电话", "身份证号", "登录密码",
+		"姓名", "是否服务人员", "电话", "身份证号", "登录密码",
 	}
 	if err := s.excelService.SetSheetHeader(sheetName, headers); err != nil {
 		return nil, "", fmt.Errorf("设置表头失败: %w", err)
@@ -38,10 +39,10 @@ func (s *TemplateService) GeneratePeopleTemplate() ([]byte, string, error) {
 
 	// 添加示例数据
 	sampleData := [][]interface{}{
-		{"张三", "法定代表人", "13800138000", "110101199001011234", "abc123"},
-		{"李四", "投资人", "13900139000", "110101199002021234", "def456"},
-		{"王五", "服务人员", "13700137000", "110101199003031234", "ghi789"},
-		{"赵六", "混合角色", "13600136000", "110101199004041234", "jkl012"},
+		{"张三", "是", "13800138000", "110101199001011234", "abc123"},
+		{"李四", "否", "13900139000", "110101199002021234", "def456"},
+		{"王五", "是", "13700137000", "110101199003031234", "ghi789"},
+		{"赵六", "否", "13600136000", "110101199004041234", "jkl012"},
 	}
 	if err := s.excelService.WriteRows(sheetName, 2, sampleData); err != nil {
 		return nil, "", fmt.Errorf("写入示例数据失败: %w", err)
@@ -49,7 +50,7 @@ func (s *TemplateService) GeneratePeopleTemplate() ([]byte, string, error) {
 
 	// 为示例数据设置边框
 	lastRow := 1 + len(sampleData)
-	endCell1, _ := excelize.CoordinatesToCellName(1, lastRow)
+	_, _ = excelize.CoordinatesToCellName(1, lastRow)
 	endCell2, _ := excelize.CoordinatesToCellName(5, lastRow)
 	startCell2, _ := excelize.CoordinatesToCellName(1, 2)
 	if err := s.excelService.SetBorderStyle(sheetName, startCell2, endCell2); err != nil {
@@ -93,9 +94,9 @@ func (s *TemplateService) GenerateCustomersTemplate() ([]byte, string, error) {
 	}
 
 	// 调整列宽（有些列需要更宽）
-	s.excelService.SetColWidth(sheetName, "I", "I", 30)  // 投资人信息
-	s.excelService.SetColWidth(sheetName, "J", "J", 20)  // 服务人员信息
-	s.excelService.SetColWidth(sheetName, "K", "K", 40)  // 协议信息
+	s.excelService.SetColWidth(sheetName, "I", 30)  // 投资人信息
+	s.excelService.SetColWidth(sheetName, "J", 20)  // 服务人员信息
+	s.excelService.SetColWidth(sheetName, "K", 40)  // 协议信息
 
 	// 添加示例数据
 	sampleData := [][]interface{}{
@@ -122,7 +123,7 @@ func (s *TemplateService) GenerateCustomersTemplate() ([]byte, string, error) {
 
 	// 为示例数据设置边框
 	lastRow := 1 + len(sampleData)
-	endCell1, _ := excelize.CoordinatesToCellName(1, lastRow)
+	_, _ = excelize.CoordinatesToCellName(1, lastRow)
 	endCell2, _ := excelize.CoordinatesToCellName(11, lastRow)
 	startCell2, _ := excelize.CoordinatesToCellName(1, 2)
 	if err := s.excelService.SetBorderStyle(sheetName, startCell2, endCell2); err != nil {
@@ -162,10 +163,10 @@ func (s *TemplateService) GenerateCustomersTemplate() ([]byte, string, error) {
 	// 设置说明表头样式
 	s.excelService.SetHeaderStyleByRange("填写说明", "A1", "D1")
 	s.excelService.SetBorderStyle("填写说明", "A1", fmt.Sprintf("D%d", len(instructions)))
-	s.excelService.SetColWidth("填写说明", "A", "A", 20)
-	s.excelService.SetColWidth("填写说明", "B", "B", 40)
-	s.excelService.SetColWidth("填写说明", "C", "C", 30)
-	s.excelService.SetColWidth("填写说明", "D", "D", 12)
+	s.excelService.SetColWidth("填写说明", "A", 20)
+	s.excelService.SetColWidth("填写说明", "B", 40)
+	s.excelService.SetColWidth("填写说明", "C", 30)
+	s.excelService.SetColWidth("填写说明", "D", 12)
 
 	// 保存到临时文件
 	tempDir := os.TempDir()

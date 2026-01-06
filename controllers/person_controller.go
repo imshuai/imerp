@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"erp/auth"
 	"erp/config"
 	"erp/models"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,6 +28,28 @@ func CreatePerson(c *gin.Context) {
 	// 更新关联客户的ID字段
 	updatePersonCustomerIDs(&person)
 
+	// 如果是服务人员，创建对应的 AdminUser（默认密码 123456）
+	if person.IsServicePerson {
+		hashedPassword, _ := auth.HashPassword("123456")
+		adminUser := models.AdminUser{
+			Username:          person.Name,
+			PasswordHash:      hashedPassword,
+			Role:              "service_person",
+			PersonID:          &person.ID,
+			MustChangePassword: true,
+		}
+		if err := config.DB.Create(&adminUser).Error; err != nil {
+			ErrorResponse(c, 500, "Failed to create admin user: "+err.Error())
+			return
+		}
+	}
+
+	// 重新获取完整的人员数据
+	config.DB.First(&person, person.ID)
+
+	// 记录操作日志
+	LogOperation(c, "create", "person", &person.ID, person.Name, nil, person)
+
 	SuccessResponse(c, person)
 }
 
@@ -35,14 +59,14 @@ func GetPeople(c *gin.Context) {
 	var total int64
 
 	// 获取查询参数
-	personType := c.Query("type")
+	isServicePerson := c.Query("is_service_person")
 	keyword := c.Query("keyword")
 
 	query := config.DB.Model(&models.Person{})
 
-	// 按类型筛选
-	if personType != "" {
-		query = query.Where("type = ?", personType)
+	// 按是否服务人员筛选
+	if isServicePerson != "" {
+		query = query.Where("is_service_person = ?", isServicePerson == "true" || isServicePerson == "1")
 	}
 
 	// 搜索功能（姓名、电话、身份证）
@@ -110,6 +134,13 @@ func UpdatePerson(c *gin.Context) {
 		return
 	}
 
+	personID := uint(id)
+
+	// 使用 JSON 深拷贝保存旧值
+	oldValueJSON, _ := json.Marshal(person)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
+
 	// 更新字段
 	config.DB.Model(&person).Updates(updateData)
 
@@ -118,6 +149,9 @@ func UpdatePerson(c *gin.Context) {
 
 	// 重新获取更新后的数据
 	config.DB.First(&person, id)
+
+	// 记录操作日志
+	LogOperation(c, "update", "person", &personID, person.Name, oldValueMap, person)
 
 	SuccessResponse(c, person)
 }
@@ -130,10 +164,21 @@ func DeletePerson(c *gin.Context) {
 		return
 	}
 
+	var person models.Person
+	if err := config.DB.First(&person, id).Error; err != nil {
+		ErrorResponse(c, 404, "Person not found")
+		return
+	}
+
+	personID := uint(id)
+
 	if err := config.DB.Delete(&models.Person{}, id).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to delete person: "+err.Error())
 		return
 	}
+
+	// 记录操作日志
+	LogOperation(c, "delete", "person", &personID, person.Name, person, nil)
 
 	SuccessResponse(c, gin.H{"message": "Person deleted successfully"})
 }

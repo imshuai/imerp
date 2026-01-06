@@ -3,9 +3,9 @@ package config
 import (
 	"fmt"
 	"erp/models"
-	"log"
 
-	"gorm.io/driver/sqlite"
+	"github.com/glebarez/sqlite"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -19,9 +19,13 @@ func InitDatabase() error {
 	// 连接SQLite数据库
 	dsn := "database/erp.db"
 	DB, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Info),
+		// 只记录错误级别的SQL日志，避免泄露敏感数据
+		Logger: logger.Default.LogMode(logger.Error),
 	})
 	if err != nil {
+		Error("Failed to connect database",
+			zap.Error(err),
+			zap.String("dsn", dsn))
 		return fmt.Errorf("failed to connect database: %w", err)
 	}
 
@@ -32,11 +36,16 @@ func InitDatabase() error {
 		&models.Task{},
 		&models.Agreement{},
 		&models.Payment{},
+		&models.AdminUser{},
+		&models.AuditLog{},
 	)
 	if err != nil {
+		Error("Failed to migrate database", zap.Error(err))
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
-	log.Println("Database connected and migrated successfully")
+	Info("Database initialized successfully",
+		zap.String("path", dsn),
+		zap.String("driver", "sqlite (pure Go)"))
 	return nil
 }

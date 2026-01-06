@@ -3,6 +3,7 @@ package controllers
 import (
 	"erp/config"
 	"erp/models"
+	"encoding/json"
 	"strconv"
 	"time"
 
@@ -21,6 +22,9 @@ func CreateTask(c *gin.Context) {
 		ErrorResponse(c, 500, "Failed to create task: "+err.Error())
 		return
 	}
+
+	// 记录操作日志
+	LogOperation(c, "create", "task", &task.ID, task.Title, nil, task)
 
 	SuccessResponse(c, task)
 }
@@ -101,8 +105,15 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
+	taskID := uint(id)
+
+	// 使用 JSON 深拷贝保存旧值
+	oldValueJSON, _ := json.Marshal(task)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
+
 	// 如果状态变为已完成，设置完成时间
-	if updateData.Status == "completed" && task.Status != "completed" {
+	if updateData.Status == models.TaskStatusCompleted && task.Status != models.TaskStatusCompleted {
 		now := time.Now()
 		updateData.CompletedAt = &now
 	}
@@ -112,6 +123,9 @@ func UpdateTask(c *gin.Context) {
 
 	// 重新获取更新后的数据
 	config.DB.Preload("Customer").First(&task, id)
+
+	// 记录操作日志
+	LogOperation(c, "update", "task", &taskID, task.Title, oldValueMap, task)
 
 	SuccessResponse(c, task)
 }
@@ -124,10 +138,21 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
+	var task models.Task
+	if err := config.DB.First(&task, id).Error; err != nil {
+		ErrorResponse(c, 404, "Task not found")
+		return
+	}
+
+	taskID := uint(id)
+
 	if err := config.DB.Delete(&models.Task{}, id).Error; err != nil {
 		ErrorResponse(c, 500, "Failed to delete task: "+err.Error())
 		return
 	}
+
+	// 记录操作日志
+	LogOperation(c, "delete", "task", &taskID, task.Title, task, nil)
 
 	SuccessResponse(c, gin.H{"message": "Task deleted successfully"})
 }
