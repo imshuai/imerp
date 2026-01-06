@@ -102,7 +102,7 @@ func UpdateTask(c *gin.Context) {
 	}
 
 	// 如果状态变为已完成，设置完成时间
-	if updateData.Status == "completed" && task.Status != "completed" {
+	if updateData.Status == models.TaskStatusCompleted && task.Status != models.TaskStatusCompleted {
 		now := time.Now()
 		updateData.CompletedAt = &now
 	}
