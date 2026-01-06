@@ -174,6 +174,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const currentAgreement = ref<Agreement | null>(null)
 
 // 客户搜索相关
 const customerOptions = ref<Customer[]>([])
@@ -289,6 +290,7 @@ const handleReset = () => {
 
 const handleAdd = () => {
   isEdit.value = false
+  currentAgreement.value = null
   Object.assign(form, {
     customer_id: undefined,
     agreement_number: '',
@@ -304,6 +306,7 @@ const handleAdd = () => {
 
 const handleEdit = (row: Agreement) => {
   isEdit.value = true
+  currentAgreement.value = row
   Object.assign(form, row)
   dialogVisible.value = true
 }
@@ -325,14 +328,41 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await updateAgreement(form.id!, form)
-      ElMessage.success('更新成功')
+      // 检查是否有任何改变
+      let hasChanges = false
+
+      // 检查各个字段是否改变
+      const fieldsToCheck = ['customer_id', 'agreement_number', 'start_date', 'end_date', 'fee_type', 'amount', 'status']
+      for (const field of fieldsToCheck) {
+        const origVal = (currentAgreement.value as any)[field]
+        const newVal = (form as any)[field]
+        if (origVal !== newVal) {
+          // 对于 undefined 和 空值的特殊处理
+          if ((origVal === undefined || origVal === null || origVal === '') &&
+              (newVal === undefined || newVal === null || newVal === '')) {
+            continue
+          }
+          hasChanges = true
+          break
+        }
+      }
+
+      // 如果有任何改变，才调用更新接口
+      if (hasChanges) {
+        await updateAgreement(form.id!, form)
+        ElMessage.success('更新成功')
+        dialogVisible.value = false
+        loadData()
+      } else {
+        ElMessage.info('没有修改任何内容')
+        dialogVisible.value = false
+      }
     } else {
       await createAgreement(form)
       ElMessage.success('创建成功')
+      dialogVisible.value = false
+      loadData()
     }
-    dialogVisible.value = false
-    loadData()
   } finally {
     submitting.value = false
   }
@@ -340,6 +370,7 @@ const handleSubmit = async () => {
 
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+  currentAgreement.value = null
 }
 
 const handlePageChange = (page: number) => {

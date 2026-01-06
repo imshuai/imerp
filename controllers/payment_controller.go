@@ -3,6 +3,8 @@ package controllers
 import (
 	"erp/config"
 	"erp/models"
+	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -17,28 +19,19 @@ func CreatePayment(c *gin.Context) {
 		return
 	}
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"create",
-		"payment",
-		nil, // resourceID is nil for create
-		nil, // no old value
-		payment,
-		func() error {
-			return config.DB.Create(&payment).Error
-		},
-	)
-
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
+	if err := config.DB.Create(&payment).Error; err != nil {
+		ErrorResponse(c, 500, "Failed to create payment: "+err.Error())
 		return
 	}
 
-	// 如果不需要审批（管理员操作），返回创建的数据
-	if !needsApproval {
-		SuccessResponse(c, payment)
-	}
+	// 重新获取完整的收款记录数据
+	config.DB.Preload("Customer").Preload("Agreement").First(&payment, payment.ID)
+
+	// 记录操作日志
+	paymentName := fmt.Sprintf("%s - %.2f元", payment.PaymentDate.Format("2006-01-02"), payment.Amount)
+	LogOperation(c, "create", "payment", &payment.ID, paymentName, nil, payment)
+
+	SuccessResponse(c, payment)
 }
 
 // GetPayments 获取收款记录列表
@@ -121,32 +114,22 @@ func UpdatePayment(c *gin.Context) {
 
 	paymentID := uint(id)
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"update",
-		"payment",
-		&paymentID,
-		payment, // old value
-		updateData, // new value
-		func() error {
-			// 更新字段
-			config.DB.Model(&payment).Updates(updateData)
-			// 重新获取更新后的数据
-			config.DB.Preload("Customer").Preload("Agreement").First(&payment, id)
-			return nil
-		},
-	)
+	// 使用 JSON 深拷贝保存旧值
+	oldValueJSON, _ := json.Marshal(payment)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
 
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
-		return
-	}
+	// 更新字段
+	config.DB.Model(&payment).Updates(updateData)
 
-	// 如果不需要审批（管理员操作），返回更新后的数据
-	if !needsApproval {
-		SuccessResponse(c, payment)
-	}
+	// 重新获取更新后的数据
+	config.DB.Preload("Customer").Preload("Agreement").First(&payment, id)
+
+	// 记录操作日志
+	paymentName := fmt.Sprintf("%s - %.2f元", payment.PaymentDate.Format("2006-01-02"), payment.Amount)
+	LogOperation(c, "update", "payment", &paymentID, paymentName, oldValueMap, payment)
+
+	SuccessResponse(c, payment)
 }
 
 // DeletePayment 删除收款记录
@@ -165,26 +148,14 @@ func DeletePayment(c *gin.Context) {
 
 	paymentID := uint(id)
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"delete",
-		"payment",
-		&paymentID,
-		payment, // old value
-		nil, // no new value for delete
-		func() error {
-			return config.DB.Delete(&models.Payment{}, id).Error
-		},
-	)
-
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
+	if err := config.DB.Delete(&models.Payment{}, id).Error; err != nil {
+		ErrorResponse(c, 500, "Failed to delete payment: "+err.Error())
 		return
 	}
 
-	// 如果不需要审批（管理员操作），返回成功消息
-	if !needsApproval {
-		SuccessResponse(c, gin.H{"message": "Payment deleted successfully"})
-	}
+	// 记录操作日志
+	paymentName := fmt.Sprintf("%s - %.2f元", payment.PaymentDate.Format("2006-01-02"), payment.Amount)
+	LogOperation(c, "delete", "payment", &paymentID, paymentName, payment, nil)
+
+	SuccessResponse(c, gin.H{"message": "Payment deleted successfully"})
 }

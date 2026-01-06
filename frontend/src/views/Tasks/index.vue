@@ -160,6 +160,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const currentTask = ref<Task | null>(null)
 
 // 客户搜索相关
 const customerOptions = ref<Customer[]>([])
@@ -255,6 +256,7 @@ const handleReset = () => {
 
 const handleAdd = () => {
   isEdit.value = false
+  currentTask.value = null
   Object.assign(form, {
     title: '',
     description: '',
@@ -290,6 +292,7 @@ const handleToggleInProgress = async (row: Task) => {
 
 const handleEdit = (row: Task) => {
   isEdit.value = true
+  currentTask.value = row
   Object.assign(form, row)
   dialogVisible.value = true
 }
@@ -311,14 +314,41 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await updateTask(form.id!, form)
-      ElMessage.success('更新成功')
+      // 检查是否有任何改变
+      let hasChanges = false
+
+      // 检查各个字段是否改变
+      const fieldsToCheck = ['title', 'description', 'customer_id', 'status', 'due_date']
+      for (const field of fieldsToCheck) {
+        const origVal = (currentTask.value as any)[field]
+        const newVal = (form as any)[field]
+        if (origVal !== newVal) {
+          // 对于 undefined 和 空值的特殊处理
+          if ((origVal === undefined || origVal === null || origVal === '') &&
+              (newVal === undefined || newVal === null || newVal === '')) {
+            continue
+          }
+          hasChanges = true
+          break
+        }
+      }
+
+      // 如果有任何改变，才调用更新接口
+      if (hasChanges) {
+        await updateTask(form.id!, form)
+        ElMessage.success('更新成功')
+        dialogVisible.value = false
+        loadData()
+      } else {
+        ElMessage.info('没有修改任何内容')
+        dialogVisible.value = false
+      }
     } else {
       await createTask(form)
       ElMessage.success('创建成功')
+      dialogVisible.value = false
+      loadData()
     }
-    dialogVisible.value = false
-    loadData()
   } finally {
     submitting.value = false
   }
@@ -326,6 +356,7 @@ const handleSubmit = async () => {
 
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+  currentTask.value = null
 }
 
 const handlePageChange = (page: number) => {

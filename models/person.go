@@ -11,7 +11,6 @@ type Person struct {
 	ID                        uint       `json:"id" gorm:"primaryKey"`
 	Type                      string     `json:"type" gorm:"default:'普通人员'"` // 兼容旧数据，根据IsServicePerson自动设置
 	IsServicePerson           bool       `json:"is_service_person" gorm:"default:false"`
-	IsManager                 bool       `json:"is_manager" gorm:"default:false"` // 是否为管理员
 	Name                      string     `json:"name" gorm:"not null"`
 	Phone                     string     `json:"phone" gorm:"not null"`
 	IDCard                    string     `json:"id_card" gorm:"unique"`

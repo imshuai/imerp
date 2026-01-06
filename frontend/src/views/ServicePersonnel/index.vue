@@ -112,6 +112,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+const currentPerson = ref<Person | null>(null)
 
 const searchForm = reactive({
   keyword: ''
@@ -171,6 +172,7 @@ const handleReset = () => {
 
 const handleAdd = () => {
   isEdit.value = false
+  currentPerson.value = null
   Object.assign(form, {
     name: '',
     phone: '',
@@ -182,6 +184,7 @@ const handleAdd = () => {
 
 const handleEdit = (row: ServicePersonnelWithCount) => {
   isEdit.value = true
+  currentPerson.value = row
   Object.assign(form, row)
   dialogVisible.value = true
 }
@@ -203,14 +206,41 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     if (isEdit.value) {
-      await updatePerson(form.id!, form)
-      ElMessage.success('更新成功')
+      // 检查是否有任何改变
+      let hasChanges = false
+
+      // 检查各个字段是否改变
+      const fieldsToCheck = ['name', 'phone', 'id_card', 'password']
+      for (const field of fieldsToCheck) {
+        const origVal = (currentPerson.value as any)[field]
+        const newVal = (form as any)[field]
+        if (origVal !== newVal) {
+          // 对于 undefined 和 空值的特殊处理
+          if ((origVal === undefined || origVal === null || origVal === '') &&
+              (newVal === undefined || newVal === null || newVal === '')) {
+            continue
+          }
+          hasChanges = true
+          break
+        }
+      }
+
+      // 如果有任何改变，才调用更新接口
+      if (hasChanges) {
+        await updatePerson(form.id!, form)
+        ElMessage.success('更新成功')
+        dialogVisible.value = false
+        loadData()
+      } else {
+        ElMessage.info('没有修改任何内容')
+        dialogVisible.value = false
+      }
     } else {
       await createPerson({ ...form, is_service_person: true })
       ElMessage.success('创建成功')
+      dialogVisible.value = false
+      loadData()
     }
-    dialogVisible.value = false
-    loadData()
   } finally {
     submitting.value = false
   }
@@ -218,6 +248,7 @@ const handleSubmit = async () => {
 
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+  currentPerson.value = null
 }
 
 const handlePageChange = (page: number) => {

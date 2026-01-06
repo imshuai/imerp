@@ -88,7 +88,7 @@ func SetupRoutes(r *gin.Engine) {
 			auth.GET("/users", controllers.GetLoginUsers) // 获取可登录用户列表（公开）
 		}
 
-		// 公开路由 - 获取服务人员列表（用于登录页面）
+		// 公开路由 - 获取人员列表（用于登录页面）
 		api.GET("/people", controllers.GetPeople)
 
 		// 需要认证的路由
@@ -99,78 +99,66 @@ func SetupRoutes(r *gin.Engine) {
 			authenticated.GET("/user/me", controllers.GetCurrentUser)
 			authenticated.POST("/user/change-password", controllers.ChangePassword)
 
-			// 管理员路由（需要管理员权限）
+			// 管理员路由（仅超级管理员）
 			admin := authenticated.Group("/admin")
-			admin.Use(middleware.RequireManager())
+			admin.Use(middleware.RequireSuperAdmin())
 			{
-				admin.GET("/users", controllers.GetAdminUsers)
-				admin.GET("/service-people", controllers.GetServicePeople)
-
-				// 仅超级管理员
-				superAdmin := admin.Group("")
-				superAdmin.Use(middleware.RequireSuperAdmin())
-				{
-					superAdmin.POST("/users", controllers.CreateAdminUser)
-					superAdmin.DELETE("/users/:id", controllers.DeleteAdminUser)
-					superAdmin.POST("/set-manager", controllers.SetManager)
-				}
-
-				// 审批管理
-				admin.GET("/approvals/pending", controllers.GetPendingApprovals)
-				admin.POST("/approvals/approve", controllers.ApproveOperation)
-				admin.POST("/approvals/reject", controllers.RejectOperation)
-				admin.GET("/audit-logs", controllers.GetAuditLogs)
+				admin.DELETE("/audit-logs/:id", controllers.DeleteAuditLog)
+				admin.POST("/audit-logs/clear", controllers.ClearAuditLogs)
 			}
 
-			// 人员管理路由（普通服务人员可操作，但需审批）
+			// 审计日志（所有登录用户可查看）
+			authenticated.GET("/audit-logs", controllers.GetAuditLogs)
+
+			// 人员管理路由（所有认证用户可操作）
 			people := authenticated.Group("/people")
 			{
 				people.GET("/:id", controllers.GetPerson)
-				people.POST("", controllers.CreatePerson)  // 允许普通服务人员，需审批
-				people.PUT("/:id", controllers.UpdatePerson)  // 允许普通服务人员，需审批
+				people.POST("", controllers.CreatePerson)
+				people.PUT("/:id", controllers.UpdatePerson)
 				people.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeletePerson)
 				people.GET("/:id/customers", controllers.GetPersonCustomers)
 			}
 
-			// 客户管理路由（普通服务人员可操作，但需审批）
+			// 客户管理路由（所有认证用户可操作）
 			customers := authenticated.Group("/customers")
 			{
 				customers.GET("", controllers.GetCustomers)
 				customers.GET("/:id", controllers.GetCustomer)
-				customers.POST("", controllers.CreateCustomer)  // 允许普通服务人员，需审批
-				customers.PUT("/:id", controllers.UpdateCustomer)  // 允许普通服务人员，需审批
+				customers.POST("", controllers.CreateCustomer)
+				customers.PUT("/:id", controllers.UpdateCustomer)
 				customers.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteCustomer)
 				customers.GET("/:id/tasks", controllers.GetCustomerTasks)
 				customers.GET("/:id/payments", controllers.GetCustomerPayments)
 			}
 
-			// 任务管理路由
+			// 任务管理路由（所有认证用户可操作）
 			tasks := authenticated.Group("/tasks")
 			{
 				tasks.GET("", controllers.GetTasks)
 				tasks.GET("/:id", controllers.GetTask)
-				tasks.POST("", controllers.CreateTask)  // 所有认证用户可创建
-				tasks.PUT("/:id", controllers.UpdateTask)  // 允许普通服务人员，需审批
+				tasks.POST("", controllers.CreateTask)
+				tasks.PUT("/:id", controllers.UpdateTask)
 				tasks.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteTask)
 			}
 
-			// 协议管理路由（普通服务人员可操作，但需审批）
+			// 协议管理路由（所有认证用户可操作）
 			agreements := authenticated.Group("/agreements")
 			{
 				agreements.GET("", controllers.GetAgreements)
 				agreements.GET("/:id", controllers.GetAgreement)
-				agreements.POST("", controllers.CreateAgreement)  // 允许普通服务人员，需审批
-				agreements.PUT("/:id", controllers.UpdateAgreement)  // 允许普通服务人员，需审批
+				agreements.POST("", controllers.CreateAgreement)
+				agreements.PUT("/:id", controllers.UpdateAgreement)
 				agreements.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteAgreement)
 			}
 
-			// 收款管理路由（普通服务人员可操作，但需审批）
+			// 收款管理路由（所有认证用户可操作）
 			payments := authenticated.Group("/payments")
 			{
 				payments.GET("", controllers.GetPayments)
 				payments.GET("/:id", controllers.GetPayment)
-				payments.POST("", controllers.CreatePayment)  // 允许普通服务人员，需审批
-				payments.PUT("/:id", controllers.UpdatePayment)  // 允许普通服务人员，需审批
+				payments.POST("", controllers.CreatePayment)
+				payments.PUT("/:id", controllers.UpdatePayment)
 				payments.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeletePayment)
 			}
 

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn } from '@/api/auth'
 
 // 角色类型
-type UserRole = 'super_admin' | 'manager' | 'service_person'
+type UserRole = 'super_admin' | 'service_person'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -70,24 +70,11 @@ const router = createRouter({
           component: () => import('@/views/ImportExport.vue'),
           meta: { title: '导入导出', icon: 'Download' }
         },
-        // 管理员功能
-        {
-          path: 'approvals',
-          name: 'Approvals',
-          component: () => import('@/views/Approvals/index.vue'),
-          meta: { title: '审批管理', icon: 'Select', requiresManager: true }
-        },
         {
           path: 'audit-logs',
           name: 'AuditLogs',
           component: () => import('@/views/AuditLogs/index.vue'),
-          meta: { title: '审计日志', icon: 'Document', requiresManager: true }
-        },
-        {
-          path: 'admin-users',
-          name: 'AdminUsers',
-          component: () => import('@/views/AdminUsers/index.vue'),
-          meta: { title: '用户管理', icon: 'UserFilled', requiresSuperAdmin: true }
+          meta: { title: '审计日志', icon: 'Document' }
         }
       ]
     },
@@ -128,12 +115,6 @@ router.beforeEach((to, _from, next) => {
 
     // 需要超级管理员权限
     if (to.meta?.requiresSuperAdmin && role !== 'super_admin') {
-      next('/dashboard')
-      return
-    }
-
-    // 需要管理员权限
-    if (to.meta?.requiresManager && role !== 'super_admin' && role !== 'manager') {
       next('/dashboard')
       return
     }

@@ -4,6 +4,7 @@ import (
 	"erp/auth"
 	"erp/config"
 	"erp/models"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -19,47 +20,37 @@ func CreatePerson(c *gin.Context) {
 		return
 	}
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"create",
-		"person",
-		nil, // resourceID is nil for create
-		nil, // no old value
-		person,
-		func() error {
-			if err := config.DB.Create(&person).Error; err != nil {
-				return err
-			}
-			// 更新关联客户的ID字段
-			updatePersonCustomerIDs(&person)
-			// 如果是服务人员，创建对应的 AdminUser（默认密码 123456）
-			if person.IsServicePerson {
-				hashedPassword, _ := auth.HashPassword("123456")
-				adminUser := models.AdminUser{
-					Username:          person.Name,
-					PasswordHash:      hashedPassword,
-					Role:              "service_person",
-					PersonID:          &person.ID,
-					MustChangePassword: true,
-				}
-				if err := config.DB.Create(&adminUser).Error; err != nil {
-					return err
-				}
-			}
-			return nil
-		},
-	)
-
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
+	if err := config.DB.Create(&person).Error; err != nil {
+		ErrorResponse(c, 500, "Failed to create person: "+err.Error())
 		return
 	}
 
-	// 如果不需要审批（管理员操作），返回创建的数据
-	if !needsApproval {
-		SuccessResponse(c, person)
+	// 更新关联客户的ID字段
+	updatePersonCustomerIDs(&person)
+
+	// 如果是服务人员，创建对应的 AdminUser（默认密码 123456）
+	if person.IsServicePerson {
+		hashedPassword, _ := auth.HashPassword("123456")
+		adminUser := models.AdminUser{
+			Username:          person.Name,
+			PasswordHash:      hashedPassword,
+			Role:              "service_person",
+			PersonID:          &person.ID,
+			MustChangePassword: true,
+		}
+		if err := config.DB.Create(&adminUser).Error; err != nil {
+			ErrorResponse(c, 500, "Failed to create admin user: "+err.Error())
+			return
+		}
 	}
+
+	// 重新获取完整的人员数据
+	config.DB.First(&person, person.ID)
+
+	// 记录操作日志
+	LogOperation(c, "create", "person", &person.ID, person.Name, nil, person)
+
+	SuccessResponse(c, person)
 }
 
 // GetPeople 获取人员列表
@@ -145,34 +136,24 @@ func UpdatePerson(c *gin.Context) {
 
 	personID := uint(id)
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"update",
-		"person",
-		&personID,
-		person, // old value
-		updateData, // new value
-		func() error {
-			// 更新字段
-			config.DB.Model(&person).Updates(updateData)
-			// 更新关联客户的ID字段
-			updatePersonCustomerIDs(&updateData)
-			// 重新获取更新后的数据
-			config.DB.First(&person, id)
-			return nil
-		},
-	)
+	// 使用 JSON 深拷贝保存旧值
+	oldValueJSON, _ := json.Marshal(person)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
 
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
-		return
-	}
+	// 更新字段
+	config.DB.Model(&person).Updates(updateData)
 
-	// 如果不需要审批（管理员操作），返回更新后的数据
-	if !needsApproval {
-		SuccessResponse(c, person)
-	}
+	// 更新关联客户的ID字段
+	updatePersonCustomerIDs(&updateData)
+
+	// 重新获取更新后的数据
+	config.DB.First(&person, id)
+
+	// 记录操作日志
+	LogOperation(c, "update", "person", &personID, person.Name, oldValueMap, person)
+
+	SuccessResponse(c, person)
 }
 
 // DeletePerson 删除人员
@@ -191,28 +172,15 @@ func DeletePerson(c *gin.Context) {
 
 	personID := uint(id)
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"delete",
-		"person",
-		&personID,
-		person, // old value
-		nil, // no new value for delete
-		func() error {
-			return config.DB.Delete(&models.Person{}, id).Error
-		},
-	)
-
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
+	if err := config.DB.Delete(&models.Person{}, id).Error; err != nil {
+		ErrorResponse(c, 500, "Failed to delete person: "+err.Error())
 		return
 	}
 
-	// 如果不需要审批（管理员操作），返回成功消息
-	if !needsApproval {
-		SuccessResponse(c, gin.H{"message": "Person deleted successfully"})
-	}
+	// 记录操作日志
+	LogOperation(c, "delete", "person", &personID, person.Name, person, nil)
+
+	SuccessResponse(c, gin.H{"message": "Person deleted successfully"})
 }
 
 // GetPersonCustomers 获取人员关联的企业列表

@@ -142,9 +142,8 @@ func GetCurrentUser(c *gin.Context) {
 		"person":              adminUser.Person,
 	}
 
-	// 如果是服务人员，额外返回 IsManager 信息
+	// 如果是服务人员，额外返回 IsServicePerson 信息
 	if role == "service_person" && adminUser.Person != nil {
-		response["is_manager"] = adminUser.Person.IsManager
 		response["is_service_person"] = adminUser.Person.IsServicePerson
 	}
 

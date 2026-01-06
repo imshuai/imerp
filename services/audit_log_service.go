@@ -14,28 +14,26 @@ func NewAuditLogService() *AuditLogService {
 	return &AuditLogService{}
 }
 
-// LogOperation 记录操作日志
-func (s *AuditLogService) LogOperation(userID uint, userType, actionType, resourceType string, resourceID *uint, oldValue, newValue interface{}) (uint, error) {
+// LogOperation 记录操作日志（所有操作直接记录，不需要审批）
+func (s *AuditLogService) LogOperation(userID uint, userType, actionType, resourceType string, resourceID *uint, resourceName string, oldValue, newValue interface{}) (uint, error) {
 	var oldValueJSON, newValueJSON string
 
 	if oldValue != nil {
-		data, err := json.Marshal(oldValue)
+		// 清理关联字段后再序列化
+		cleanedOld := cleanAssociations(oldValue)
+		data, err := json.Marshal(cleanedOld)
 		if err == nil {
 			oldValueJSON = string(data)
 		}
 	}
 
 	if newValue != nil {
-		data, err := json.Marshal(newValue)
+		// 清理关联字段后再序列化
+		cleanedNew := cleanAssociations(newValue)
+		data, err := json.Marshal(cleanedNew)
 		if err == nil {
 			newValueJSON = string(data)
 		}
-	}
-
-	// 判断状态：如果是超级管理员或管理员操作，直接通过；普通服务人员操作需要审批
-	status := "pending" // 默认为待审批
-	if userType == "super_admin" || userType == "manager" {
-		status = "approved"
 	}
 
 	auditLog := models.AuditLog{
@@ -44,16 +42,9 @@ func (s *AuditLogService) LogOperation(userID uint, userType, actionType, resour
 		ActionType:   actionType,
 		ResourceType: resourceType,
 		ResourceID:   resourceID,
+		ResourceName: resourceName,
 		OldValue:     oldValueJSON,
 		NewValue:     newValueJSON,
-		Status:       status,
-	}
-
-	// 如果是自动审批，设置审批人和时间
-	if status == "approved" {
-		auditLog.ApprovedBy = &userID
-		now := config.DB.NowFunc()
-		auditLog.ApprovedAt = &now
 	}
 
 	if err := config.DB.Create(&auditLog).Error; err != nil {
@@ -63,68 +54,59 @@ func (s *AuditLogService) LogOperation(userID uint, userType, actionType, resour
 	return auditLog.ID, nil
 }
 
-// LogAutoApproved 自动审批的日志（admin/manager 操作）
-func (s *AuditLogService) LogAutoApproved(userID uint, userType, actionType, resourceType string, resourceID *uint, oldValue, newValue interface{}) (uint, error) {
-	logID, err := s.LogOperation(userID, userType, actionType, resourceType, resourceID, oldValue, newValue)
+// cleanAssociations 清理对象中的关联字段，避免序列化整个关联对象
+func cleanAssociations(v interface{}) interface{} {
+	// 将对象转换为 map
+	data, err := json.Marshal(v)
 	if err != nil {
-		return 0, err
+		return v
 	}
 
-	// 更新为已审批状态
-	now := config.DB.NowFunc
-	config.DB.Model(&models.AuditLog{}).Where("id = ?", logID).Updates(map[string]interface{}{
-		"status":      "approved",
-		"approved_by": userID,
-		"approved_at": now,
-	})
-
-	return logID, nil
-}
-
-// GetPendingLogs 获取待审批的日志列表
-func (s *AuditLogService) GetPendingLogs() ([]models.AuditLog, error) {
-	var logs []models.AuditLog
-	err := config.DB.Where("status = ?", "pending").
-		Preload("User").
-		Order("created_at desc").
-		Find(&logs).Error
-	return logs, err
-}
-
-// ApproveLog 审批通过
-func (s *AuditLogService) ApproveLog(logID, approvedBy uint) error {
-	now := config.DB.NowFunc()
-	return config.DB.Model(&models.AuditLog{}).Where("id = ?", logID).Updates(map[string]interface{}{
-		"status":      "approved",
-		"approved_by": approvedBy,
-		"approved_at": now,
-	}).Error
-}
-
-// RejectLog 审批拒绝
-func (s *AuditLogService) RejectLog(logID, approvedBy uint, reason string) error {
-	now := config.DB.NowFunc()
-	return config.DB.Model(&models.AuditLog{}).Where("id = ?", logID).Updates(map[string]interface{}{
-		"status":      "rejected",
-		"approved_by": approvedBy,
-		"approved_at": now,
-		"reason":      reason,
-	}).Error
-}
-
-// GetAuditLogs 获取审计日志列表（可筛选）
-func (s *AuditLogService) GetAuditLogs(status string, offset, limit int) ([]models.AuditLog, int64, error) {
-	var logs []models.AuditLog
-	var total int64
-
-	query := config.DB.Model(&models.AuditLog{}).Preload("User")
-
-	if status != "" {
-		query = query.Where("status = ?", status)
+	var m map[string]interface{}
+	if err := json.Unmarshal(data, &m); err != nil {
+		return v
 	}
 
-	query.Count(&total)
-	err := query.Order("created_at desc").Offset(offset).Limit(limit).Find(&logs).Error
+	// 在删除关联字段之前，尝试将ID字段转换为名字字段
+	// 处理 service_person_ids
+	if servicePersons, ok := m["service_persons"].([]interface{}); ok && len(servicePersons) > 0 {
+		var names []string
+		for _, sp := range servicePersons {
+			if spMap, ok := sp.(map[string]interface{}); ok {
+				if name, ok := spMap["name"].(string); ok {
+					names = append(names, name)
+				}
+			}
+		}
+		if len(names) > 0 {
+			m["service_person_ids"] = names
+		}
+	}
 
-	return logs, total, err
+	// 删除 GORM 关联对象字段（JSON 序列化后的 snake_case 格式）
+	delete(m, "Customer")
+	delete(m, "Agreement")
+	delete(m, "Payments")
+	delete(m, "Tasks")
+	delete(m, "Representative")
+	delete(m, "InvestorList")
+	delete(m, "ServicePersons")
+	delete(m, "Agreements")
+	delete(m, "User")
+	delete(m, "Person")
+
+	// 删除由 loadCustomerRelations 等函数加载的关联列表字段
+	delete(m, "representative")
+	delete(m, "investor_list")
+	delete(m, "service_persons")
+	delete(m, "agreements_list")
+	// 删除小写的关联字段（根据各模型的 json tag）
+	delete(m, "customer")
+	delete(m, "agreement")
+	delete(m, "payments")
+	delete(m, "tasks")
+	delete(m, "user")
+	delete(m, "person")
+
+	return m
 }

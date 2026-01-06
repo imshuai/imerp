@@ -18,36 +18,21 @@ func CreateCustomer(c *gin.Context) {
 		return
 	}
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"create",
-		"customer",
-		nil, // resourceID is nil for create
-		nil, // no old value
-		customer,
-		func() error {
-			// 执行创建操作
-			if err := config.DB.Create(&customer).Error; err != nil {
-				return err
-			}
-			// 同步更新Person表的关联字段
-			syncPersonRelations(&customer)
-			// 加载关联数据
-			loadCustomerRelations(&customer)
-			return nil
-		},
-	)
-
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
+	if err := config.DB.Create(&customer).Error; err != nil {
+		ErrorResponse(c, 500, "Failed to create customer: "+err.Error())
 		return
 	}
 
-	// 如果不需要审批（管理员操作），返回创建的数据
-	if !needsApproval {
-		SuccessResponse(c, customer)
-	}
+	// 同步更新Person表的关联字段
+	syncPersonRelations(&customer)
+
+	// 加载关联数据
+	loadCustomerRelations(&customer)
+
+	// 记录操作日志
+	LogOperation(c, "create", "customer", &customer.ID, customer.Name, nil, customer)
+
+	SuccessResponse(c, customer)
 }
 
 // GetCustomers 获取客户列表
@@ -199,37 +184,31 @@ func UpdateCustomer(c *gin.Context) {
 
 	customerID := uint(id)
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"update",
-		"customer",
-		&customerID,
-		customer, // old value
-		updateData, // new value
-		func() error {
-			// 更新字段
-			if err := config.DB.Model(&customer).Updates(updateData).Error; err != nil {
-				return err
-			}
-			// 同步更新Person表的关联字段
-			syncPersonRelations(&updateData)
-			// 重新获取更新后的数据
-			config.DB.First(&customer, id)
-			loadCustomerRelations(&customer)
-			return nil
-		},
-	)
+	// 先加载关联信息，这样旧值的service_person_ids也能转换为名字
+	loadCustomerRelations(&customer)
 
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
-		return
-	}
+	// 使用 JSON 深拷贝保存旧值，避免后续修改影响
+	oldValueJSON, _ := json.Marshal(customer)
+	var oldValueMap map[string]interface{}
+	json.Unmarshal(oldValueJSON, &oldValueMap)
 
-	// 如果不需要审批（管理员操作），返回更新后的数据
-	if !needsApproval {
-		SuccessResponse(c, customer)
-	}
+	// 清理旧值中的关联字段，service_person_ids会转换为名字数组
+	oldValueMap = cleanAssociationsForAudit(oldValueMap)
+
+	// 更新字段
+	config.DB.Model(&customer).Updates(updateData)
+
+	// 同步更新Person表的关联字段（不记录审计日志）
+	syncPersonRelations(&updateData)
+
+	// 重新获取更新后的数据
+	config.DB.First(&customer, id)
+	loadCustomerRelations(&customer)
+
+	// 记录操作日志
+	LogOperation(c, "update", "customer", &customerID, customer.Name, oldValueMap, customer)
+
+	SuccessResponse(c, customer)
 }
 
 // DeleteCustomer 删除客户
@@ -248,43 +227,28 @@ func DeleteCustomer(c *gin.Context) {
 
 	customerID := uint(id)
 
-	// 使用审批流程处理
-	needsApproval, err := HandleOperationWithApproval(
-		c,
-		"delete",
-		"customer",
-		&customerID,
-		customer, // old value
-		nil, // no new value for delete
-		func() error {
-			if err := config.DB.Delete(&models.Customer{}, id).Error; err != nil {
-				return err
-			}
-			// 清理Person表中的关联ID
-			config.DB.Model(&models.Person{}).
-				Where("representative_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
-				Update("representative_customer_ids", gorm.Expr("REPLACE(representative_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
-
-			config.DB.Model(&models.Person{}).
-				Where("investor_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
-				Update("investor_customer_ids", gorm.Expr("REPLACE(investor_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
-
-			config.DB.Model(&models.Person{}).
-				Where("service_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
-				Update("service_customer_ids", gorm.Expr("REPLACE(service_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
-			return nil
-		},
-	)
-
-	if err != nil {
-		ErrorResponse(c, 500, err.Error())
+	if err := config.DB.Delete(&models.Customer{}, id).Error; err != nil {
+		ErrorResponse(c, 500, "Failed to delete customer: "+err.Error())
 		return
 	}
 
-	// 如果不需要审批（管理员操作），返回成功消息
-	if !needsApproval {
-		SuccessResponse(c, gin.H{"message": "Customer deleted successfully"})
-	}
+	// 清理Person表中的关联ID
+	config.DB.Model(&models.Person{}).
+		Where("representative_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+		Update("representative_customer_ids", gorm.Expr("REPLACE(representative_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+
+	config.DB.Model(&models.Person{}).
+		Where("investor_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+		Update("investor_customer_ids", gorm.Expr("REPLACE(investor_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+
+	config.DB.Model(&models.Person{}).
+		Where("service_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+		Update("service_customer_ids", gorm.Expr("REPLACE(service_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+
+	// 记录操作日志
+	LogOperation(c, "delete", "customer", &customerID, customer.Name, customer, nil)
+
+	SuccessResponse(c, gin.H{"message": "Customer deleted successfully"})
 }
 
 // GetCustomerTasks 获取客户的任务列表
@@ -401,8 +365,9 @@ func syncPersonRelations(customer *models.Customer) {
 		if config.DB.First(&rep, *customer.RepresentativeID).Error == nil {
 			ids := StringToIDs(rep.RepresentativeCustomerIDs)
 			ids = appendUniqueID(ids, customerID)
-			rep.RepresentativeCustomerIDs = IDsToString(ids)
-			config.DB.Save(&rep)
+			newIDs := IDsToString(ids)
+			// 只更新关联字段，不触发完整模型保存
+			config.DB.Model(&rep).Update("representative_customer_ids", newIDs)
 		}
 	}
 
@@ -415,8 +380,9 @@ func syncPersonRelations(customer *models.Customer) {
 				if config.DB.First(&inv, info.PersonID).Error == nil {
 					ids := StringToIDs(inv.InvestorCustomerIDs)
 					ids = appendUniqueID(ids, customerID)
-					inv.InvestorCustomerIDs = IDsToString(ids)
-					config.DB.Save(&inv)
+					newIDs := IDsToString(ids)
+					// 只更新关联字段，不触发完整模型保存
+					config.DB.Model(&inv).Update("investor_customer_ids", newIDs)
 				}
 			}
 		}
@@ -430,8 +396,9 @@ func syncPersonRelations(customer *models.Customer) {
 			if config.DB.First(&sp, personID).Error == nil {
 				customerIDs := StringToIDs(sp.ServiceCustomerIDs)
 				customerIDs = appendUniqueID(customerIDs, customerID)
-				sp.ServiceCustomerIDs = IDsToString(customerIDs)
-				config.DB.Save(&sp)
+				newIDs := IDsToString(customerIDs)
+				// 只更新关联字段，不触发完整模型保存
+				config.DB.Model(&sp).Update("service_customer_ids", newIDs)
 			}
 		}
 	}
@@ -445,4 +412,43 @@ func appendUniqueID(ids []uint, newID uint) []uint {
 		}
 	}
 	return append(ids, newID)
+}
+
+// cleanAssociationsForAudit 清理审计日志中的关联字段，将ID转换为名字
+func cleanAssociationsForAudit(m map[string]interface{}) map[string]interface{} {
+	// 在删除关联字段之前，尝试将ID字段转换为名字字段
+	// 处理 service_person_ids
+	if servicePersons, ok := m["service_persons"].([]interface{}); ok && len(servicePersons) > 0 {
+		var names []string
+		for _, sp := range servicePersons {
+			if spMap, ok := sp.(map[string]interface{}); ok {
+				if name, ok := spMap["name"].(string); ok {
+					names = append(names, name)
+				}
+			}
+		}
+		if len(names) > 0 {
+			m["service_person_ids"] = names
+		}
+	}
+
+	// 删除 GORM 关联对象字段
+	delete(m, "Customer")
+	delete(m, "Agreement")
+	delete(m, "Payments")
+	delete(m, "Tasks")
+	delete(m, "Representative")
+	delete(m, "InvestorList")
+	delete(m, "ServicePersons")
+	delete(m, "Agreements")
+	delete(m, "User")
+	delete(m, "Person")
+
+	// 删除由 loadCustomerRelations 等函数加载的关联列表字段
+	delete(m, "representative")
+	delete(m, "investor_list")
+	delete(m, "service_persons")
+	delete(m, "agreements_list")
+
+	return m
 }

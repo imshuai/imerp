@@ -33,7 +33,14 @@
             <el-link type="primary" @click="handleViewDetail(row)">{{ row.name }}</el-link>
           </template>
         </el-table-column>
-        <el-table-column prop="tax_number" label="税号" min-width="170" />
+        <el-table-column label="税号" min-width="170">
+          <template #default="{ row }">
+            <span class="copy-cell" @click="handleCopy(row.tax_number)">
+              {{ row.tax_number }}
+              <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="法定代表人" min-width="100">
           <template #default="{ row }">
             {{ row.representative?.name || '-' }}
@@ -41,17 +48,19 @@
         </el-table-column>
         <el-table-column label="法人电话" min-width="120">
           <template #default="{ row }">
-            <el-link v-if="row.representative?.phone" type="primary" @click="handleCopy(row.representative.phone)">
+            <span v-if="row.representative?.phone" class="copy-cell" @click="handleCopy(row.representative.phone)">
               {{ row.representative.phone }}
-            </el-link>
+              <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+            </span>
             <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="法人密码" min-width="110">
           <template #default="{ row }">
-            <el-link v-if="row.representative?.password" type="primary" @click="handleCopy(row.representative.password)">
+            <span v-if="row.representative?.password" class="copy-cell" @click="handleCopy(row.representative.password)">
               {{ row.representative.password }}
-            </el-link>
+              <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+            </span>
             <span v-else>-</span>
           </template>
         </el-table-column>
@@ -160,8 +169,7 @@
               @clear="handleRepresentativeClear"
             >
               <template #default="{ item }">
-                <div>{{ item.name }}</div>
-                <div style="font-size: 12px; color: #999;">{{ item.phone }}</div>
+                <div>{{ item.name }} - {{ item.id_card || '无身份证号' }}</div>
               </template>
             </el-autocomplete>
           </el-form-item>
@@ -192,7 +200,7 @@
             <el-form-item label="姓名">
               <el-autocomplete
                 v-model="investor.name"
-                :fetch-suggestions="(q: string) => searchInvestorsForItemAuto(q, index)"
+                :fetch-suggestions="getSearchInvestorsForItem(index)"
                 placeholder="请输入姓名搜索或直接填写"
                 :trigger-on-focus="false"
                 clearable
@@ -201,8 +209,7 @@
                 @clear="handleInvestorClear(index)"
               >
                 <template #default="{ item }">
-                  <div>{{ item.name }}</div>
-                  <div style="font-size: 12px; color: #999;">{{ item.phone }}</div>
+                  <div>{{ item.name }} - {{ item.id_card || '无身份证号' }}</div>
                 </template>
               </el-autocomplete>
             </el-form-item>
@@ -243,7 +250,6 @@
             multiple
             placeholder="请选择服务人员"
             style="width: 100%"
-            @focus="loadServicePersons"
           >
             <el-option
               v-for="item in servicePersonOptions"
@@ -322,6 +328,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
+import { DocumentCopy } from '@element-plus/icons-vue'
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '@/api/customers'
 import { getPeople, createPerson, updatePerson } from '@/api/people'
 import type { Customer } from '@/api/customers'
@@ -458,28 +465,27 @@ const handleRepresentativeClear = () => {
   })
 }
 
-// 为特定投资人索引搜索（autocomplete使用） - 带防抖
-const searchInvestorsDebouncedMap = new Map<number, ReturnType<typeof debounce>>()
+// 为特定投资人索引创建搜索函数
+const getSearchInvestorsForItem = (_index: number) => {
+  // 为每个索引创建独立的搜索函数
+  const debouncedSearch = debounce(async (qs: string, cb: (results: any[]) => void) => {
+    if (!qs) {
+      cb([])
+      return
+    }
+    try {
+      const res = await getPeople({
+        keyword: qs
+      })
+      cb(res.items)
+    } catch (error) {
+      cb([])
+    }
+  }, 300)
 
-const searchInvestorsForItemAuto = async (queryString: string, index: number) => {
-  if (!queryString) {
-    return []
+  return (queryString: string, cb: (results: any[]) => void) => {
+    debouncedSearch(queryString, cb)
   }
-
-  if (!searchInvestorsDebouncedMap.has(index)) {
-    searchInvestorsDebouncedMap.set(index, debounce(async (qs: string) => {
-      try {
-        const res = await getPeople({
-          keyword: qs
-        })
-        return res.items
-      } catch (error) {
-        return []
-      }
-    }, 300))
-  }
-
-  return await searchInvestorsDebouncedMap.get(index)!(queryString)
 }
 
 // 选择投资人（autocomplete）
@@ -529,7 +535,6 @@ const handleRemoveInvestmentRecord = (investorIndex: number, recordIndex: number
 
 // 加载所有服务人员（静态下拉）
 const loadServicePersons = async () => {
-  if (servicePersonOptions.value.length > 0) return
   try {
     const res = await getPeople({ is_service_person: true })
     servicePersonOptions.value = res.items
@@ -583,7 +588,7 @@ const handleEditFromDetail = () => {
   }
 }
 
-const handleAdd = () => {
+const handleAdd = async () => {
   isEdit.value = false
   Object.assign(form, {
     name: '',
@@ -608,11 +613,14 @@ const handleAdd = () => {
     password: ''
   })
   investorsForm.value = []
+  // 预先加载服务人员列表
+  await loadServicePersons()
   dialogVisible.value = true
 }
 
-const handleEdit = (row: Customer) => {
+const handleEdit = async (row: Customer) => {
   isEdit.value = true
+  currentCustomer.value = row
   Object.assign(form, row)
 
   // 服务人员
@@ -672,6 +680,8 @@ const handleEdit = (row: Customer) => {
     }
   }
 
+  // 预先加载服务人员列表
+  await loadServicePersons()
   dialogVisible.value = true
 }
 
@@ -693,32 +703,82 @@ const handleSubmit = async () => {
   try {
     const idCardToPersonId = new Map<string, number>()
 
+    // 深度比较函数
+    const deepEqual = (obj1: any, obj2: any): boolean => {
+      return JSON.stringify(obj1) === JSON.stringify(obj2)
+    }
+
     // 处理法定代表人
     let representativeId = form.representative_id
+    let representativeChanged = false
+    let needsRepresentativeUpdate = false
+
     if (representativeForm.name) {
-      if (representativeForm.id) {
-        await updatePerson(representativeForm.id, {
-          name: representativeForm.name,
-          phone: representativeForm.phone,
-          id_card: representativeForm.id_card,
-          password: representativeForm.password
-        })
-        representativeId = representativeForm.id
-        if (representativeForm.id_card) {
-          idCardToPersonId.set(representativeForm.id_card, representativeForm.id)
+      // 构建新的法定代表人对象
+      const newRepresentative = {
+        name: representativeForm.name,
+        phone: representativeForm.phone || '',
+        id_card: representativeForm.id_card || '',
+        password: representativeForm.password || ''
+      }
+
+      // 获取原始法定代表人对象
+      const originalRepresentative = currentCustomer.value?.representative
+
+      if (originalRepresentative) {
+        if (representativeForm.id === originalRepresentative.id) {
+          // 同一个人，检查字段是否改变
+          const originalData = {
+            name: originalRepresentative.name,
+            phone: originalRepresentative.phone || '',
+            id_card: originalRepresentative.id_card || '',
+            password: originalRepresentative.password || ''
+          }
+          if (!deepEqual(newRepresentative, originalData)) {
+            representativeChanged = true
+            needsRepresentativeUpdate = true
+          } else {
+            representativeId = originalRepresentative.id
+          }
+        } else {
+          // 不同的人，需要创建/关联
+          needsRepresentativeUpdate = true
         }
       } else {
-        if (representativeForm.id_card) {
-          const existingRes = await getPeople({ keyword: representativeForm.id_card })
-          const existing = existingRes.items.find((p: Person) => p.id_card === representativeForm.id_card)
-          if (existing) {
-            await updatePerson(existing.id, {
-              name: representativeForm.name,
-              phone: representativeForm.phone,
-              password: representativeForm.password
-            })
-            representativeId = existing.id
-            idCardToPersonId.set(representativeForm.id_card, existing.id)
+        // 原来没有法定代表人，现在有，需要创建
+        needsRepresentativeUpdate = true
+      }
+
+      // 只有需要改变时才更新
+      if (needsRepresentativeUpdate) {
+        if (representativeForm.id) {
+          await updatePerson(representativeForm.id, newRepresentative)
+          representativeId = representativeForm.id
+          if (representativeForm.id_card) {
+            idCardToPersonId.set(representativeForm.id_card, representativeForm.id)
+          }
+        } else {
+          if (representativeForm.id_card) {
+            const existingRes = await getPeople({ keyword: representativeForm.id_card })
+            const existing = existingRes.items.find((p: Person) => p.id_card === representativeForm.id_card)
+            if (existing) {
+              await updatePerson(existing.id, {
+                name: representativeForm.name,
+                phone: representativeForm.phone,
+                password: representativeForm.password
+              })
+              representativeId = existing.id
+              idCardToPersonId.set(representativeForm.id_card, existing.id)
+            } else {
+              const newPerson = await createPerson({
+                name: representativeForm.name,
+                phone: representativeForm.phone,
+                id_card: representativeForm.id_card,
+                password: representativeForm.password
+              })
+              representativeId = newPerson.id
+              idCardToPersonId.set(representativeForm.id_card, newPerson.id)
+            }
           } else {
             const newPerson = await createPerson({
               name: representativeForm.name,
@@ -727,59 +787,94 @@ const handleSubmit = async () => {
               password: representativeForm.password
             })
             representativeId = newPerson.id
-            idCardToPersonId.set(representativeForm.id_card, newPerson.id)
           }
-        } else {
-          const newPerson = await createPerson({
-            name: representativeForm.name,
-            phone: representativeForm.phone,
-            id_card: representativeForm.id_card,
-            password: representativeForm.password
-          })
-          representativeId = newPerson.id
+        }
+      } else {
+        // 没有改变，使用原来的ID
+        if (originalRepresentative) {
+          representativeId = originalRepresentative.id
         }
       }
     }
 
     // 处理投资人
     const investors = []
+    let investorsChanged = false
+    const originalInvestorInfos = currentCustomer.value?.investors ? JSON.parse(currentCustomer.value.investors) : []
 
     // 如果填写了法定代表人但投资人列表为空，自动将法定代表人添加为投资人（100%）
     if (representativeId && investorsForm.value.length === 0) {
-      investors.push({
-        person_id: representativeId,
-        share_ratio: 100,
-        investment_records: []
-      })
+      const newInvInfo = { person_id: representativeId, share_ratio: 100, investment_records: [] }
+      if (!deepEqual(newInvInfo, originalInvestorInfos[0])) {
+        investorsChanged = true
+      }
+      investors.push(newInvInfo)
     }
 
     for (const investor of investorsForm.value) {
       if (investor.name) {
         let personId = investor.id
+        let needsInvestorUpdate = false
 
+        // 构建新的投资人对象
+        const newInvestorData = {
+          name: investor.name,
+          phone: investor.phone || '',
+          id_card: investor.id_card || ''
+        }
+
+        // 检查投资人信息是否改变
         if (investor.id) {
-          await updatePerson(investor.id, {
-            name: investor.name,
-            phone: investor.phone,
-            id_card: investor.id_card
-          })
-          personId = investor.id
-          if (investor.id_card) {
-            idCardToPersonId.set(investor.id_card, investor.id)
+          const originalInv = currentCustomer.value?.investor_list?.find((p: Person) => p.id === investor.id)
+          if (originalInv) {
+            const originalData = {
+              name: originalInv.name,
+              phone: originalInv.phone || '',
+              id_card: originalInv.id_card || ''
+            }
+            if (!deepEqual(newInvestorData, originalData)) {
+              needsInvestorUpdate = true
+            } else {
+              personId = investor.id
+            }
+          } else {
+            needsInvestorUpdate = true
           }
         } else {
-          if (investor.id_card && idCardToPersonId.has(investor.id_card)) {
-            personId = idCardToPersonId.get(investor.id_card)!
-          } else if (investor.id_card) {
-            const existingRes = await getPeople({ keyword: investor.id_card })
-            const existing = existingRes.items.find((p: Person) => p.id_card === investor.id_card)
-            if (existing) {
-              await updatePerson(existing.id, {
-                name: investor.name,
-                phone: investor.phone
-              })
-              personId = existing.id
-              idCardToPersonId.set(investor.id_card, existing.id)
+          needsInvestorUpdate = true
+        }
+
+        // 只有需要改变时才更新
+        if (needsInvestorUpdate) {
+          investorsChanged = true
+          if (investor.id) {
+            await updatePerson(investor.id, newInvestorData)
+            personId = investor.id
+            if (investor.id_card) {
+              idCardToPersonId.set(investor.id_card, investor.id)
+            }
+          } else {
+            if (investor.id_card && idCardToPersonId.has(investor.id_card)) {
+              personId = idCardToPersonId.get(investor.id_card)!
+            } else if (investor.id_card) {
+              const existingRes = await getPeople({ keyword: investor.id_card })
+              const existing = existingRes.items.find((p: Person) => p.id_card === investor.id_card)
+              if (existing) {
+                await updatePerson(existing.id, {
+                  name: investor.name,
+                  phone: investor.phone
+                })
+                personId = existing.id
+                idCardToPersonId.set(investor.id_card, existing.id)
+              } else {
+                const newPerson = await createPerson({
+                  name: investor.name,
+                  phone: investor.phone,
+                  id_card: investor.id_card
+                })
+                personId = newPerson.id
+                idCardToPersonId.set(investor.id_card!, newPerson.id)
+              }
             } else {
               const newPerson = await createPerson({
                 name: investor.name,
@@ -787,23 +882,23 @@ const handleSubmit = async () => {
                 id_card: investor.id_card
               })
               personId = newPerson.id
-              idCardToPersonId.set(investor.id_card!, newPerson.id)
             }
-          } else {
-            const newPerson = await createPerson({
-              name: investor.name,
-              phone: investor.phone,
-              id_card: investor.id_card
-            })
-            personId = newPerson.id
+          }
+        } else {
+          // 没有改变，使用原来的ID
+          if (investor.id) {
+            personId = investor.id
           }
         }
 
-        investors.push({
-          person_id: personId,
-          share_ratio: investor.share_ratio || 0,
-          investment_records: investor.investment_records || []
-        })
+        // 检查投资信息是否改变
+        const invInfo = { person_id: personId, share_ratio: investor.share_ratio || 0, investment_records: investor.investment_records || [] }
+        const originalInvInfo = originalInvestorInfos.find((i: any) => i.person_id === personId)
+        if (!deepEqual(invInfo, originalInvInfo)) {
+          investorsChanged = true
+        }
+
+        investors.push(invInfo)
       }
     }
 
@@ -815,8 +910,41 @@ const handleSubmit = async () => {
     }
 
     if (isEdit.value) {
-      await updateCustomer(form.id!, submitData)
-      ElMessage.success('更新成功')
+      // 检查客户信息是否改变
+      let customerChanged = false
+
+      // 检查服务人员是否改变
+      const originalServicePersonIds = currentCustomer.value?.service_persons?.map((p: Person) => p.id).sort() || []
+      const newServicePersonIds = [...servicePersonIds.value].sort()
+      if (JSON.stringify(originalServicePersonIds) !== JSON.stringify(newServicePersonIds)) {
+        customerChanged = true
+      }
+
+      // 检查其他字段是否改变
+      const fieldsToCheck = ['name', 'phone', 'address', 'tax_number', 'type', 'registered_capital',
+                               'license_registration_date', 'tax_registration_date', 'tax_office',
+                               'tax_administrator', 'tax_administrator_phone', 'taxpayer_type']
+      for (const field of fieldsToCheck) {
+        const origVal = (currentCustomer.value as any)[field]
+        const newVal = (submitData as any)[field]
+        if (origVal !== newVal) {
+          // 对于 undefined 和 空值的特殊处理
+          if ((origVal === undefined || origVal === null || origVal === '') &&
+              (newVal === undefined || newVal === null || newVal === '')) {
+            continue
+          }
+          customerChanged = true
+          break
+        }
+      }
+
+      // 如果有任何改变，才调用更新接口
+      if (customerChanged || representativeChanged || investorsChanged) {
+        await updateCustomer(form.id!, submitData)
+        ElMessage.success('更新成功')
+      } else {
+        ElMessage.info('没有修改任何内容')
+      }
     } else {
       await createCustomer(submitData)
       ElMessage.success('创建成功')
@@ -830,6 +958,7 @@ const handleSubmit = async () => {
 
 const handleDialogClose = () => {
   formRef.value?.resetFields()
+  currentCustomer.value = null
 }
 
 const handleDetailDialogClose = () => {
@@ -867,5 +996,30 @@ onMounted(() => {
 
 .toolbar {
   margin-bottom: 20px;
+}
+
+.copy-cell {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.copy-cell:hover {
+  background-color: #f0f0f0;
+}
+
+.copy-cell:hover .copy-icon {
+  opacity: 1;
+}
+
+.copy-icon {
+  margin-left: 6px;
+  font-size: 14px;
+  color: #409eff;
+  opacity: 0;
+  transition: opacity 0.2s;
 }
 </style>

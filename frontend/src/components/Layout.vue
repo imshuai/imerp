@@ -82,10 +82,9 @@ const userName = computed(() => {
   return user?.username || '管理员'
 })
 
-// 是否可以修改密码（只有 admin 和 manager 可以）
+// 是否可以修改密码（所有登录用户都可以）
 const canChangePassword = computed(() => {
-  const role = userRole.value
-  return role === 'super_admin' || role === 'manager'
+  return !!userRole.value
 })
 
 // 根据角色过滤菜单
@@ -108,9 +107,6 @@ const filteredMenuRoutes = computed(() => {
     if (r.meta?.requiresSuperAdmin && role !== 'super_admin') {
       return false
     }
-    if (r.meta?.requiresManager && role !== 'super_admin' && role !== 'manager') {
-      return false
-    }
 
     return r.path.startsWith('/') && r.path !== '/login'
   })
@@ -127,14 +123,12 @@ const currentTitle = computed(() => {
 // 获取角色标签类型
 const getRoleTagType = (role: string) => {
   if (role === 'super_admin') return 'danger'
-  if (role === 'manager') return 'warning'
   return 'info'
 }
 
 // 获取角色标签文本
 const getRoleLabel = (role: string) => {
   if (role === 'super_admin') return '超级用户'
-  if (role === 'manager') return '管理员'
   if (role === 'service_person') return '服务人员'
   return ''
 }
