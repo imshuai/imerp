@@ -52,13 +52,7 @@ func LoadAppConfig(configPath string) error {
 	if appConfig.Server.Port == 0 {
 		appConfig.Server.Port = 8080
 	}
-	if appConfig.Server.Mode == "" {
-		if appConfig.Server.Env == "production" {
-			appConfig.Server.Mode = "release"
-		} else {
-			appConfig.Server.Mode = "debug"
-		}
-	}
+	// mode 的默认值在 main.go 中根据最终的 env 设置
 	if appConfig.Log.Level == "" {
 		appConfig.Log.Level = "info"
 	}

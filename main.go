@@ -40,8 +40,8 @@ func main() {
 		config.AppConfig.Log.Level = *logLevel
 	}
 
-	// 重新计算 Gin 运行模式（如果 env 被覆盖）
-	if *env != "" && config.AppConfig.Server.Mode == "" {
+	// 设置 Gin 运行模式的默认值（如果配置文件中没有指定）
+	if config.AppConfig.Server.Mode == "" {
 		if config.AppConfig.Server.Env == "production" {
 			config.AppConfig.Server.Mode = "release"
 		} else {
