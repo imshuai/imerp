@@ -36,6 +36,8 @@ func InitDatabase() error {
 		&models.Task{},
 		&models.Agreement{},
 		&models.Payment{},
+		&models.AdminUser{},
+		&models.AuditLog{},
 	)
 	if err != nil {
 		Error("Failed to migrate database", zap.Error(err))

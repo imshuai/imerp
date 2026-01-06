@@ -3,6 +3,7 @@ package routes
 import (
 	"erp/controllers"
 	"erp/config"
+	"erp/middleware"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
@@ -80,83 +81,121 @@ func SetupRoutes(r *gin.Engine) {
 	// API路由组
 	api := r.Group("/api")
 	{
-		// 人员管理路由
-		people := api.Group("/people")
+		// 认证路由（无需token）
+		auth := api.Group("/auth")
 		{
-			people.GET("", controllers.GetPeople)
-			people.POST("", controllers.CreatePerson)
-			people.GET("/:id", controllers.GetPerson)
-			people.PUT("/:id", controllers.UpdatePerson)
-			people.DELETE("/:id", controllers.DeletePerson)
-			people.GET("/:id/customers", controllers.GetPersonCustomers)
+			auth.POST("/login", controllers.Login)
 		}
 
-		// 客户管理路由
-		customers := api.Group("/customers")
+		// 需要认证的路由
+		authenticated := api.Group("")
+		authenticated.Use(middleware.AuthMiddleware())
 		{
-			customers.GET("", controllers.GetCustomers)
-			customers.POST("", controllers.CreateCustomer)
-			customers.GET("/:id", controllers.GetCustomer)
-			customers.PUT("/:id", controllers.UpdateCustomer)
-			customers.DELETE("/:id", controllers.DeleteCustomer)
-			customers.GET("/:id/tasks", controllers.GetCustomerTasks)
-			customers.GET("/:id/payments", controllers.GetCustomerPayments)
-		}
+			// 用户信息
+			authenticated.GET("/user/me", controllers.GetCurrentUser)
+			authenticated.POST("/user/change-password", controllers.ChangePassword)
 
-		// 任务管理路由
-		tasks := api.Group("/tasks")
-		{
-			tasks.GET("", controllers.GetTasks)
-			tasks.POST("", controllers.CreateTask)
-			tasks.GET("/:id", controllers.GetTask)
-			tasks.PUT("/:id", controllers.UpdateTask)
-			tasks.DELETE("/:id", controllers.DeleteTask)
-		}
+			// 管理员路由（需要管理员权限）
+			admin := authenticated.Group("/admin")
+			admin.Use(middleware.RequireManager())
+			{
+				admin.GET("/users", controllers.GetAdminUsers)
+				admin.GET("/service-people", controllers.GetServicePeople)
 
-		// 协议管理路由
-		agreements := api.Group("/agreements")
-		{
-			agreements.GET("", controllers.GetAgreements)
-			agreements.POST("", controllers.CreateAgreement)
-			agreements.GET("/:id", controllers.GetAgreement)
-			agreements.PUT("/:id", controllers.UpdateAgreement)
-			agreements.DELETE("/:id", controllers.DeleteAgreement)
-		}
+				// 仅超级管理员
+				superAdmin := admin.Group("")
+				superAdmin.Use(middleware.RequireSuperAdmin())
+				{
+					superAdmin.POST("/users", controllers.CreateAdminUser)
+					superAdmin.DELETE("/users/:id", controllers.DeleteAdminUser)
+					superAdmin.POST("/set-manager", controllers.SetManager)
+				}
 
-		// 收款管理路由
-		payments := api.Group("/payments")
-		{
-			payments.GET("", controllers.GetPayments)
-			payments.POST("", controllers.CreatePayment)
-			payments.GET("/:id", controllers.GetPayment)
-			payments.PUT("/:id", controllers.UpdatePayment)
-			payments.DELETE("/:id", controllers.DeletePayment)
-		}
+				// 审批管理
+				admin.GET("/approvals/pending", controllers.GetPendingApprovals)
+				admin.POST("/approvals/approve", controllers.ApproveOperation)
+				admin.POST("/approvals/reject", controllers.RejectOperation)
+				admin.GET("/audit-logs", controllers.GetAuditLogs)
+			}
 
-		// 统计分析路由
-		statistics := api.Group("/statistics")
-		{
-			statistics.GET("/overview", controllers.GetOverview)
-			statistics.GET("/tasks", controllers.GetTaskStats)
-			statistics.GET("/payments", controllers.GetPaymentStats)
-		}
+			// 人员管理路由
+			people := authenticated.Group("/people")
+			{
+				people.GET("", controllers.GetPeople)
+				people.GET("/:id", controllers.GetPerson)
+				people.POST("", middleware.RequireManager(), controllers.CreatePerson)
+				people.PUT("/:id", middleware.RequireManager(), controllers.UpdatePerson)
+				people.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeletePerson)
+				people.GET("/:id/customers", controllers.GetPersonCustomers)
+			}
 
-		// 导入导出路由
-		templates := api.Group("/templates")
-		{
-			templates.GET("/:type", importExportCtrl.DownloadTemplate)
-		}
+			// 客户管理路由
+			customers := authenticated.Group("/customers")
+			{
+				customers.GET("", controllers.GetCustomers)
+				customers.GET("/:id", controllers.GetCustomer)
+				customers.POST("", middleware.RequireManager(), controllers.CreateCustomer)
+				customers.PUT("/:id", middleware.RequireManager(), controllers.UpdateCustomer)
+				customers.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteCustomer)
+				customers.GET("/:id/tasks", controllers.GetCustomerTasks)
+				customers.GET("/:id/payments", controllers.GetCustomerPayments)
+			}
 
-		importAPI := api.Group("/import")
-		{
-			importAPI.POST("/people", importExportCtrl.ImportPeople)
-			importAPI.POST("/customers", importExportCtrl.ImportCustomers)
-		}
+			// 任务管理路由
+			tasks := authenticated.Group("/tasks")
+			{
+				tasks.GET("", controllers.GetTasks)
+				tasks.GET("/:id", controllers.GetTask)
+				tasks.POST("", controllers.CreateTask)  // 所有认证用户可创建
+				tasks.PUT("/:id", middleware.RequireManager(), controllers.UpdateTask)
+				tasks.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteTask)
+			}
 
-		export := api.Group("/export")
-		{
-			export.GET("/people", importExportCtrl.ExportPeople)
-			export.GET("/customers", importExportCtrl.ExportCustomers)
+			// 协议管理路由
+			agreements := authenticated.Group("/agreements")
+			{
+				agreements.GET("", controllers.GetAgreements)
+				agreements.GET("/:id", controllers.GetAgreement)
+				agreements.POST("", middleware.RequireManager(), controllers.CreateAgreement)
+				agreements.PUT("/:id", middleware.RequireManager(), controllers.UpdateAgreement)
+				agreements.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteAgreement)
+			}
+
+			// 收款管理路由
+			payments := authenticated.Group("/payments")
+			{
+				payments.GET("", controllers.GetPayments)
+				payments.GET("/:id", controllers.GetPayment)
+				payments.POST("", middleware.RequireManager(), controllers.CreatePayment)
+				payments.PUT("/:id", middleware.RequireManager(), controllers.UpdatePayment)
+				payments.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeletePayment)
+			}
+
+			// 统计分析路由
+			statistics := authenticated.Group("/statistics")
+			{
+				statistics.GET("/overview", controllers.GetOverview)
+				statistics.GET("/tasks", controllers.GetTaskStats)
+				statistics.GET("/payments", controllers.GetPaymentStats)
+			}
+
+			// 导入导出路由
+			templates := authenticated.Group("/templates")
+			{
+				templates.GET("/:type", importExportCtrl.DownloadTemplate)
+			}
+
+			importAPI := authenticated.Group("/import")
+			{
+				importAPI.POST("/people", importExportCtrl.ImportPeople)
+				importAPI.POST("/customers", importExportCtrl.ImportCustomers)
+			}
+
+			export := authenticated.Group("/export")
+			{
+				export.GET("/people", importExportCtrl.ExportPeople)
+				export.GET("/customers", importExportCtrl.ExportCustomers)
+			}
 		}
 	}
 }

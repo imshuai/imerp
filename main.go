@@ -3,6 +3,7 @@ package main
 import (
 	"erp/config"
 	"erp/routes"
+	"erp/services"
 	"flag"
 	"os"
 	"os/signal"
@@ -70,6 +71,18 @@ func main() {
 	// 初始化数据库
 	if err := config.InitDatabase(); err != nil {
 		config.Fatal("Failed to initialize database", zap.Error(err))
+	}
+
+	// 初始化超级管理员（首次运行）
+	initService := services.NewInitService()
+	if !initService.IsSuperAdminExists() {
+		config.Info("Initializing super admin user...")
+		if err := initService.InitializeSuperAdmin(); err != nil {
+			config.Fatal("Failed to initialize super admin", zap.Error(err))
+		}
+		config.Info("Super admin initialized successfully",
+			zap.String("username", "admin"),
+			zap.String("password", "admin"))
 	}
 
 	// 创建Gin实例
