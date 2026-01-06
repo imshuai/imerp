@@ -93,19 +93,21 @@ func (s *AuditLogService) GetPendingLogs() ([]models.AuditLog, error) {
 
 // ApproveLog 审批通过
 func (s *AuditLogService) ApproveLog(logID, approvedBy uint) error {
+	now := config.DB.NowFunc()
 	return config.DB.Model(&models.AuditLog{}).Where("id = ?", logID).Updates(map[string]interface{}{
 		"status":      "approved",
 		"approved_by": approvedBy,
-		"approved_at": config.DB.NowFunc,
+		"approved_at": now,
 	}).Error
 }
 
 // RejectLog 审批拒绝
 func (s *AuditLogService) RejectLog(logID, approvedBy uint, reason string) error {
+	now := config.DB.NowFunc()
 	return config.DB.Model(&models.AuditLog{}).Where("id = ?", logID).Updates(map[string]interface{}{
 		"status":      "rejected",
 		"approved_by": approvedBy,
-		"approved_at": config.DB.NowFunc,
+		"approved_at": now,
 		"reason":      reason,
 	}).Error
 }
