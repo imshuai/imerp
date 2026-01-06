@@ -3,9 +3,12 @@ package controllers
 import (
 	"erp/config"
 	"erp/models"
+	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // CreateAgreement 创建协议
@@ -14,6 +17,16 @@ func CreateAgreement(c *gin.Context) {
 	if err := c.ShouldBindJSON(&agreement); err != nil {
 		ErrorResponse(c, 400, "Invalid request data: "+err.Error())
 		return
+	}
+
+	// 如果协议编号为空，自动生成
+	if agreement.AgreementNumber == "" {
+		number, err := GenerateAgreementNumber(config.DB)
+		if err != nil {
+			ErrorResponse(c, 500, "Failed to generate agreement number: "+err.Error())
+			return
+		}
+		agreement.AgreementNumber = number
 	}
 
 	if err := config.DB.Create(&agreement).Error; err != nil {
@@ -123,4 +136,35 @@ func DeleteAgreement(c *gin.Context) {
 	}
 
 	SuccessResponse(c, gin.H{"message": "Agreement deleted successfully"})
+}
+
+// ============ 辅助函数 ============
+
+// GenerateAgreementNumber 生成协议编号
+// 格式: AGT + YYYYMMDD + 4位序号
+// 例如: AGT202601050001
+func GenerateAgreementNumber(db *gorm.DB) (string, error) {
+	now := time.Now()
+	dateStr := now.Format("20060102")
+
+	// 查询当天最大的协议编号
+	prefix := "AGT" + dateStr
+	var lastAgreement models.Agreement
+	err := db.Where("agreement_number LIKE ?", prefix+"%").Order("agreement_number DESC").First(&lastAgreement).Error
+
+	serialNum := 1
+	if err == nil {
+		// 提取序号部分
+		lastNumber := lastAgreement.AgreementNumber
+		if len(lastNumber) >= len(prefix)+4 {
+			serialStr := lastNumber[len(prefix):]
+			if num, err := strconv.ParseInt(serialStr, 10, 32); err == nil {
+				serialNum = int(num) + 1
+			}
+		}
+	}
+
+	// 生成新编号：AGT + YYYYMMDD + 4位序号（补零）
+	newNumber := fmt.Sprintf("%s%04d", prefix, serialNum)
+	return newNumber, nil
 }
