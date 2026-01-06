@@ -68,8 +68,8 @@ const userSuggestions = ref<any[]>([])
 
 // 登录表单
 const loginForm = reactive({
-  username: 'admin',
-  password: 'admin'
+  username: '',
+  password: ''
 })
 
 // 验证规则
