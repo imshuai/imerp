@@ -49,7 +49,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '@/api/auth'
-import { setToken, setStoredUser, getToken } from '@/api/auth'
+import { setToken, setStoredUser } from '@/api/auth'
 
 const router = useRouter()
 const loginFormRef = ref()
@@ -109,9 +109,10 @@ const handleLogin = async () => {
 // 获取用户信息
 const fetchUserInfo = async () => {
   try {
+    const token = localStorage.getItem('erp_token')
     const user = await (await fetch('/api/user/me', {
       headers: {
-        'Authorization': `Bearer ${getToken()}`
+        'Authorization': `Bearer ${token}`
       }
     })).json()
     if (user.code === 0) {
