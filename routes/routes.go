@@ -85,6 +85,7 @@ func SetupRoutes(r *gin.Engine) {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", controllers.Login)
+			auth.GET("/users", controllers.GetLoginUsers) // 获取可登录用户列表（公开）
 		}
 
 		// 公开路由 - 获取服务人员列表（用于登录页面）

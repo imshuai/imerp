@@ -150,3 +150,29 @@ func GetCurrentUser(c *gin.Context) {
 
 	SuccessResponse(c, response)
 }
+
+// GetLoginUsers 获取可登录的用户名列表（公开接口，用于登录页面）
+func GetLoginUsers(c *gin.Context) {
+	var users []models.AdminUser
+	// 获取除了超级管理员外的所有用户
+	if err := config.DB.Where("role != ?", "super_admin").Order("username ASC").Find(&users).Error; err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 只返回用户名和角色
+	type UserInfo struct {
+		Username string `json:"username"`
+		Role     string `json:"role"`
+	}
+
+	result := make([]UserInfo, len(users))
+	for i, user := range users {
+		result[i] = UserInfo{
+			Username: user.Username,
+			Role:     user.Role,
+		}
+	}
+
+	SuccessResponse(c, result)
+}

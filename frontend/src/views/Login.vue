@@ -9,11 +9,21 @@
 
       <el-form :model="loginForm" :rules="rules" ref="loginFormRef" label-width="80px">
         <el-form-item label="用户名" prop="username">
-          <el-input
+          <el-autocomplete
             v-model="loginForm.username"
+            :fetch-suggestions="querySearch"
             placeholder="请输入用户名"
+            style="width: 100%"
             @keyup.enter="handleLogin"
-          />
+            @select="handleSelect"
+          >
+            <template #default="{ item }">
+              <div class="user-item">
+                <span>{{ item.value }}</span>
+                <span class="user-role">{{ getRoleName(item.role) }}</span>
+              </div>
+            </template>
+          </el-autocomplete>
         </el-form-item>
 
         <el-form-item label="密码" prop="password">
@@ -45,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login } from '@/api/auth'
@@ -54,6 +64,7 @@ import { setToken, setStoredUser } from '@/api/auth'
 const router = useRouter()
 const loginFormRef = ref()
 const loading = ref(false)
+const userSuggestions = ref<any[]>([])
 
 // 登录表单
 const loginForm = reactive({
@@ -69,6 +80,45 @@ const rules = {
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' }
   ]
+}
+
+// 加载用户列表
+const loadUsers = async () => {
+  try {
+    const response = await fetch('/api/auth/users')
+    const result = await response.json()
+    if (result.code === 0 && result.data) {
+      userSuggestions.value = result.data.map((user: any) => ({
+        value: user.username,
+        role: user.role
+      }))
+    }
+  } catch (error) {
+    console.error('Failed to load users:', error)
+  }
+}
+
+// 搜索建议
+const querySearch = (queryString: string, cb: any) => {
+  const results = queryString
+    ? userSuggestions.value.filter(user => user.value.toLowerCase().includes(queryString.toLowerCase()))
+    : userSuggestions.value
+  cb(results)
+}
+
+// 选择用户
+const handleSelect = (item: any) => {
+  loginForm.username = item.value
+}
+
+// 获取角色名称
+const getRoleName = (role: string) => {
+  const roleMap: Record<string, string> = {
+    'super_admin': '超级管理员',
+    'manager': '管理员',
+    'service_person': '服务人员'
+  }
+  return roleMap[role] || role
 }
 
 // 登录
@@ -123,6 +173,10 @@ const fetchUserInfo = async () => {
     console.error('Failed to fetch user info:', error)
   }
 }
+
+onMounted(() => {
+  loadUsers()
+})
 </script>
 
 <style scoped>
@@ -145,5 +199,17 @@ const fetchUserInfo = async () => {
 .card-header h2 {
   margin: 0;
   color: #409EFF;
+}
+
+.user-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.user-role {
+  font-size: 12px;
+  color: #909399;
 }
 </style>
