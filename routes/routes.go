@@ -87,6 +87,9 @@ func SetupRoutes(r *gin.Engine) {
 			auth.POST("/login", controllers.Login)
 		}
 
+		// 公开路由 - 获取服务人员列表（用于登录页面）
+		api.GET("/people", controllers.GetPeople)
+
 		// 需要认证的路由
 		authenticated := api.Group("")
 		authenticated.Use(middleware.AuthMiddleware())
@@ -121,7 +124,6 @@ func SetupRoutes(r *gin.Engine) {
 			// 人员管理路由
 			people := authenticated.Group("/people")
 			{
-				people.GET("", controllers.GetPeople)
 				people.GET("/:id", controllers.GetPerson)
 				people.POST("", middleware.RequireManager(), controllers.CreatePerson)
 				people.PUT("/:id", middleware.RequireManager(), controllers.UpdatePerson)
