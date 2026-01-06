@@ -241,15 +241,44 @@ func ApproveOperation(c *gin.Context) {
 		return
 	}
 
+	// 获取审批记录
+	var auditLog models.AuditLog
+	if err := config.DB.Preload("User").First(&auditLog, req.LogID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			ErrorResponse(c, 404, "Approval log not found")
+		} else {
+			ErrorResponse(c, 500, err.Error())
+		}
+		return
+	}
+
+	// 检查状态
+	if auditLog.Status != "pending" {
+		ErrorResponse(c, 400, "Operation is not pending")
+		return
+	}
+
+	// 更新状态为已审批
 	auditService := services.NewAuditLogService()
 	if err := auditService.ApproveLog(req.LogID, userID.(uint)); err != nil {
 		ErrorResponse(c, 500, "Failed to approve: "+err.Error())
 		return
 	}
 
-	// TODO: 执行实际的数据库操作（从 NewValue 恢复数据）
+	// 执行实际操作
+	executor := services.NewApprovalExecutor()
+	if err := executor.ExecuteOperation(&auditLog); err != nil {
+		// 执行失败，回滚审批状态
+		config.DB.Model(&auditLog).Updates(map[string]interface{}{
+			"status":       "pending",
+			"approved_by":   nil,
+			"approved_at":   nil,
+		})
+		ErrorResponse(c, 500, "Failed to execute operation: "+err.Error())
+		return
+	}
 
-	SuccessResponse(c, gin.H{"message": "Operation approved successfully"})
+	SuccessResponse(c, gin.H{"message": "Operation approved and executed successfully"})
 }
 
 // RejectOperation 审批拒绝

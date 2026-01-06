@@ -21,7 +21,7 @@
           <el-input
             v-model="form.new_password"
             type="password"
-            placeholder="请输入新密码（至少6位）"
+            placeholder="请输入新密码"
             show-password
           />
         </el-form-item>
@@ -67,8 +67,6 @@ const form = reactive({
 const validateNewPassword = (_rule: any, value: any, callback: any) => {
   if (value === '') {
     callback(new Error('请输入新密码'))
-  } else if (value.length < 6) {
-    callback(new Error('密码长度不能少于6位'))
   } else {
     callback()
   }

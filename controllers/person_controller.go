@@ -18,15 +18,33 @@ func CreatePerson(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Create(&person).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to create person: "+err.Error())
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"create",
+		"person",
+		nil, // resourceID is nil for create
+		nil, // no old value
+		person,
+		func() error {
+			if err := config.DB.Create(&person).Error; err != nil {
+				return err
+			}
+			// 更新关联客户的ID字段
+			updatePersonCustomerIDs(&person)
+			return nil
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
 		return
 	}
 
-	// 更新关联客户的ID字段
-	updatePersonCustomerIDs(&person)
-
-	SuccessResponse(c, person)
+	// 如果不需要审批（管理员操作），返回创建的数据
+	if !needsApproval {
+		SuccessResponse(c, person)
+	}
 }
 
 // GetPeople 获取人员列表
@@ -110,16 +128,36 @@ func UpdatePerson(c *gin.Context) {
 		return
 	}
 
-	// 更新字段
-	config.DB.Model(&person).Updates(updateData)
+	personID := uint(id)
 
-	// 更新关联客户的ID字段
-	updatePersonCustomerIDs(&updateData)
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"update",
+		"person",
+		&personID,
+		person, // old value
+		updateData, // new value
+		func() error {
+			// 更新字段
+			config.DB.Model(&person).Updates(updateData)
+			// 更新关联客户的ID字段
+			updatePersonCustomerIDs(&updateData)
+			// 重新获取更新后的数据
+			config.DB.First(&person, id)
+			return nil
+		},
+	)
 
-	// 重新获取更新后的数据
-	config.DB.First(&person, id)
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
 
-	SuccessResponse(c, person)
+	// 如果不需要审批（管理员操作），返回更新后的数据
+	if !needsApproval {
+		SuccessResponse(c, person)
+	}
 }
 
 // DeletePerson 删除人员
@@ -130,12 +168,36 @@ func DeletePerson(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Delete(&models.Person{}, id).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to delete person: "+err.Error())
+	var person models.Person
+	if err := config.DB.First(&person, id).Error; err != nil {
+		ErrorResponse(c, 404, "Person not found")
 		return
 	}
 
-	SuccessResponse(c, gin.H{"message": "Person deleted successfully"})
+	personID := uint(id)
+
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"delete",
+		"person",
+		&personID,
+		person, // old value
+		nil, // no new value for delete
+		func() error {
+			return config.DB.Delete(&models.Person{}, id).Error
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回成功消息
+	if !needsApproval {
+		SuccessResponse(c, gin.H{"message": "Person deleted successfully"})
+	}
 }
 
 // GetPersonCustomers 获取人员关联的企业列表

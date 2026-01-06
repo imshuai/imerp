@@ -18,18 +18,36 @@ func CreateCustomer(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Create(&customer).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to create customer: "+err.Error())
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"create",
+		"customer",
+		nil, // resourceID is nil for create
+		nil, // no old value
+		customer,
+		func() error {
+			// 执行创建操作
+			if err := config.DB.Create(&customer).Error; err != nil {
+				return err
+			}
+			// 同步更新Person表的关联字段
+			syncPersonRelations(&customer)
+			// 加载关联数据
+			loadCustomerRelations(&customer)
+			return nil
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
 		return
 	}
 
-	// 同步更新Person表的关联字段
-	syncPersonRelations(&customer)
-
-	// 加载关联数据
-	loadCustomerRelations(&customer)
-
-	SuccessResponse(c, customer)
+	// 如果不需要审批（管理员操作），返回创建的数据
+	if !needsApproval {
+		SuccessResponse(c, customer)
+	}
 }
 
 // GetCustomers 获取客户列表
@@ -179,17 +197,39 @@ func UpdateCustomer(c *gin.Context) {
 		return
 	}
 
-	// 更新字段
-	config.DB.Model(&customer).Updates(updateData)
+	customerID := uint(id)
 
-	// 同步更新Person表的关联字段
-	syncPersonRelations(&updateData)
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"update",
+		"customer",
+		&customerID,
+		customer, // old value
+		updateData, // new value
+		func() error {
+			// 更新字段
+			if err := config.DB.Model(&customer).Updates(updateData).Error; err != nil {
+				return err
+			}
+			// 同步更新Person表的关联字段
+			syncPersonRelations(&updateData)
+			// 重新获取更新后的数据
+			config.DB.First(&customer, id)
+			loadCustomerRelations(&customer)
+			return nil
+		},
+	)
 
-	// 重新获取更新后的数据
-	config.DB.First(&customer, id)
-	loadCustomerRelations(&customer)
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
 
-	SuccessResponse(c, customer)
+	// 如果不需要审批（管理员操作），返回更新后的数据
+	if !needsApproval {
+		SuccessResponse(c, customer)
+	}
 }
 
 // DeleteCustomer 删除客户
@@ -200,26 +240,51 @@ func DeleteCustomer(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Delete(&models.Customer{}, id).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to delete customer: "+err.Error())
+	var customer models.Customer
+	if err := config.DB.First(&customer, id).Error; err != nil {
+		ErrorResponse(c, 404, "Customer not found")
 		return
 	}
 
-	// 清理Person表中的关联ID
 	customerID := uint(id)
-	config.DB.Model(&models.Person{}).
-		Where("representative_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
-		Update("representative_customer_ids", gorm.Expr("REPLACE(representative_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
 
-	config.DB.Model(&models.Person{}).
-		Where("investor_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
-		Update("investor_customer_ids", gorm.Expr("REPLACE(investor_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"delete",
+		"customer",
+		&customerID,
+		customer, // old value
+		nil, // no new value for delete
+		func() error {
+			if err := config.DB.Delete(&models.Customer{}, id).Error; err != nil {
+				return err
+			}
+			// 清理Person表中的关联ID
+			config.DB.Model(&models.Person{}).
+				Where("representative_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+				Update("representative_customer_ids", gorm.Expr("REPLACE(representative_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
 
-	config.DB.Model(&models.Person{}).
-		Where("service_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
-		Update("service_customer_ids", gorm.Expr("REPLACE(service_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+			config.DB.Model(&models.Person{}).
+				Where("investor_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+				Update("investor_customer_ids", gorm.Expr("REPLACE(investor_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
 
-	SuccessResponse(c, gin.H{"message": "Customer deleted successfully"})
+			config.DB.Model(&models.Person{}).
+				Where("service_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+				Update("service_customer_ids", gorm.Expr("REPLACE(service_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+			return nil
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回成功消息
+	if !needsApproval {
+		SuccessResponse(c, gin.H{"message": "Customer deleted successfully"})
+	}
 }
 
 // GetCustomerTasks 获取客户的任务列表

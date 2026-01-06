@@ -90,7 +90,7 @@
           <el-input v-model="createForm.username" placeholder="请输入用户名" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="createForm.password" type="password" show-password placeholder="请输入密码（至少6位）" />
+          <el-input v-model="createForm.password" type="password" show-password placeholder="请输入密码" />
         </el-form-item>
         <el-form-item label="选择人员" prop="person_id">
           <el-select
@@ -147,10 +147,7 @@ const createForm = reactive({
 
 const createRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
-  ],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   person_id: [{ required: true, message: '请选择服务人员', trigger: 'change' }]
 }
 

@@ -19,22 +19,36 @@ func CreateAgreement(c *gin.Context) {
 		return
 	}
 
-	// 如果协议编号为空，自动生成
-	if agreement.AgreementNumber == "" {
-		number, err := GenerateAgreementNumber(config.DB)
-		if err != nil {
-			ErrorResponse(c, 500, "Failed to generate agreement number: "+err.Error())
-			return
-		}
-		agreement.AgreementNumber = number
-	}
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"create",
+		"agreement",
+		nil, // resourceID is nil for create
+		nil, // no old value
+		agreement,
+		func() error {
+			// 如果协议编号为空，自动生成
+			if agreement.AgreementNumber == "" {
+				number, err := GenerateAgreementNumber(config.DB)
+				if err != nil {
+					return err
+				}
+				agreement.AgreementNumber = number
+			}
+			return config.DB.Create(&agreement).Error
+		},
+	)
 
-	if err := config.DB.Create(&agreement).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to create agreement: "+err.Error())
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
 		return
 	}
 
-	SuccessResponse(c, agreement)
+	// 如果不需要审批（管理员操作），返回创建的数据
+	if !needsApproval {
+		SuccessResponse(c, agreement)
+	}
 }
 
 // GetAgreements 获取协议列表
@@ -113,13 +127,34 @@ func UpdateAgreement(c *gin.Context) {
 		return
 	}
 
-	// 更新字段
-	config.DB.Model(&agreement).Updates(updateData)
+	agreementID := uint(id)
 
-	// 重新获取更新后的数据
-	config.DB.Preload("Customer").First(&agreement, id)
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"update",
+		"agreement",
+		&agreementID,
+		agreement, // old value
+		updateData, // new value
+		func() error {
+			// 更新字段
+			config.DB.Model(&agreement).Updates(updateData)
+			// 重新获取更新后的数据
+			config.DB.Preload("Customer").First(&agreement, id)
+			return nil
+		},
+	)
 
-	SuccessResponse(c, agreement)
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回更新后的数据
+	if !needsApproval {
+		SuccessResponse(c, agreement)
+	}
 }
 
 // DeleteAgreement 删除协议
@@ -130,12 +165,36 @@ func DeleteAgreement(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Delete(&models.Agreement{}, id).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to delete agreement: "+err.Error())
+	var agreement models.Agreement
+	if err := config.DB.First(&agreement, id).Error; err != nil {
+		ErrorResponse(c, 404, "Agreement not found")
 		return
 	}
 
-	SuccessResponse(c, gin.H{"message": "Agreement deleted successfully"})
+	agreementID := uint(id)
+
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"delete",
+		"agreement",
+		&agreementID,
+		agreement, // old value
+		nil, // no new value for delete
+		func() error {
+			return config.DB.Delete(&models.Agreement{}, id).Error
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回成功消息
+	if !needsApproval {
+		SuccessResponse(c, gin.H{"message": "Agreement deleted successfully"})
+	}
 }
 
 // ============ 辅助函数 ============

@@ -17,12 +17,28 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Create(&task).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to create task: "+err.Error())
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"create",
+		"task",
+		nil, // resourceID is nil for create
+		nil, // no old value
+		task,
+		func() error {
+			return config.DB.Create(&task).Error
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
 		return
 	}
 
-	SuccessResponse(c, task)
+	// 如果不需要审批（管理员操作），返回创建的数据
+	if !needsApproval {
+		SuccessResponse(c, task)
+	}
 }
 
 // GetTasks 获取任务列表
@@ -101,19 +117,40 @@ func UpdateTask(c *gin.Context) {
 		return
 	}
 
+	taskID := uint(id)
+
 	// 如果状态变为已完成，设置完成时间
 	if updateData.Status == models.TaskStatusCompleted && task.Status != models.TaskStatusCompleted {
 		now := time.Now()
 		updateData.CompletedAt = &now
 	}
 
-	// 更新字段
-	config.DB.Model(&task).Updates(updateData)
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"update",
+		"task",
+		&taskID,
+		task, // old value
+		updateData, // new value
+		func() error {
+			// 更新字段
+			config.DB.Model(&task).Updates(updateData)
+			// 重新获取更新后的数据
+			config.DB.Preload("Customer").First(&task, id)
+			return nil
+		},
+	)
 
-	// 重新获取更新后的数据
-	config.DB.Preload("Customer").First(&task, id)
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
 
-	SuccessResponse(c, task)
+	// 如果不需要审批（管理员操作），返回更新后的数据
+	if !needsApproval {
+		SuccessResponse(c, task)
+	}
 }
 
 // DeleteTask 删除任务
@@ -124,10 +161,34 @@ func DeleteTask(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Delete(&models.Task{}, id).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to delete task: "+err.Error())
+	var task models.Task
+	if err := config.DB.First(&task, id).Error; err != nil {
+		ErrorResponse(c, 404, "Task not found")
 		return
 	}
 
-	SuccessResponse(c, gin.H{"message": "Task deleted successfully"})
+	taskID := uint(id)
+
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"delete",
+		"task",
+		&taskID,
+		task, // old value
+		nil, // no new value for delete
+		func() error {
+			return config.DB.Delete(&models.Task{}, id).Error
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回成功消息
+	if !needsApproval {
+		SuccessResponse(c, gin.H{"message": "Task deleted successfully"})
+	}
 }

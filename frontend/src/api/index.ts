@@ -48,14 +48,14 @@ request.interceptors.response.use(
   (response: AxiosResponse) => {
     const res = response.data
     if (res.code === 0) {
+      // 检查是否需要审批
+      if (res.data?.requires_approval) {
+        // 操作需要审批
+        ElMessage.warning(res.message || '操作已提交，等待管理员审批')
+      }
       return res.data
     } else {
       ElMessage.error(res.message || '请求失败')
-      // 401 未授权，跳转登录页
-      if (res.code === 401) {
-        removeToken()
-        window.location.href = '/login'
-      }
       return Promise.reject(new Error(res.message || '请求失败'))
     }
   },

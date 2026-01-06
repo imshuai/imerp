@@ -17,12 +17,28 @@ func CreatePayment(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Create(&payment).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to create payment: "+err.Error())
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"create",
+		"payment",
+		nil, // resourceID is nil for create
+		nil, // no old value
+		payment,
+		func() error {
+			return config.DB.Create(&payment).Error
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
 		return
 	}
 
-	SuccessResponse(c, payment)
+	// 如果不需要审批（管理员操作），返回创建的数据
+	if !needsApproval {
+		SuccessResponse(c, payment)
+	}
 }
 
 // GetPayments 获取收款记录列表
@@ -103,13 +119,34 @@ func UpdatePayment(c *gin.Context) {
 		return
 	}
 
-	// 更新字段
-	config.DB.Model(&payment).Updates(updateData)
+	paymentID := uint(id)
 
-	// 重新获取更新后的数据
-	config.DB.Preload("Customer").Preload("Agreement").First(&payment, id)
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"update",
+		"payment",
+		&paymentID,
+		payment, // old value
+		updateData, // new value
+		func() error {
+			// 更新字段
+			config.DB.Model(&payment).Updates(updateData)
+			// 重新获取更新后的数据
+			config.DB.Preload("Customer").Preload("Agreement").First(&payment, id)
+			return nil
+		},
+	)
 
-	SuccessResponse(c, payment)
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回更新后的数据
+	if !needsApproval {
+		SuccessResponse(c, payment)
+	}
 }
 
 // DeletePayment 删除收款记录
@@ -120,10 +157,34 @@ func DeletePayment(c *gin.Context) {
 		return
 	}
 
-	if err := config.DB.Delete(&models.Payment{}, id).Error; err != nil {
-		ErrorResponse(c, 500, "Failed to delete payment: "+err.Error())
+	var payment models.Payment
+	if err := config.DB.First(&payment, id).Error; err != nil {
+		ErrorResponse(c, 404, "Payment not found")
 		return
 	}
 
-	SuccessResponse(c, gin.H{"message": "Payment deleted successfully"})
+	paymentID := uint(id)
+
+	// 使用审批流程处理
+	needsApproval, err := HandleOperationWithApproval(
+		c,
+		"delete",
+		"payment",
+		&paymentID,
+		payment, // old value
+		nil, // no new value for delete
+		func() error {
+			return config.DB.Delete(&models.Payment{}, id).Error
+		},
+	)
+
+	if err != nil {
+		ErrorResponse(c, 500, err.Error())
+		return
+	}
+
+	// 如果不需要审批（管理员操作），返回成功消息
+	if !needsApproval {
+		SuccessResponse(c, gin.H{"message": "Payment deleted successfully"})
+	}
 }

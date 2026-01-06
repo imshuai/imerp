@@ -121,23 +121,23 @@ func SetupRoutes(r *gin.Engine) {
 				admin.GET("/audit-logs", controllers.GetAuditLogs)
 			}
 
-			// 人员管理路由
+			// 人员管理路由（普通服务人员可操作，但需审批）
 			people := authenticated.Group("/people")
 			{
 				people.GET("/:id", controllers.GetPerson)
-				people.POST("", middleware.RequireManager(), controllers.CreatePerson)
-				people.PUT("/:id", middleware.RequireManager(), controllers.UpdatePerson)
+				people.POST("", controllers.CreatePerson)  // 允许普通服务人员，需审批
+				people.PUT("/:id", controllers.UpdatePerson)  // 允许普通服务人员，需审批
 				people.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeletePerson)
 				people.GET("/:id/customers", controllers.GetPersonCustomers)
 			}
 
-			// 客户管理路由
+			// 客户管理路由（普通服务人员可操作，但需审批）
 			customers := authenticated.Group("/customers")
 			{
 				customers.GET("", controllers.GetCustomers)
 				customers.GET("/:id", controllers.GetCustomer)
-				customers.POST("", middleware.RequireManager(), controllers.CreateCustomer)
-				customers.PUT("/:id", middleware.RequireManager(), controllers.UpdateCustomer)
+				customers.POST("", controllers.CreateCustomer)  // 允许普通服务人员，需审批
+				customers.PUT("/:id", controllers.UpdateCustomer)  // 允许普通服务人员，需审批
 				customers.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteCustomer)
 				customers.GET("/:id/tasks", controllers.GetCustomerTasks)
 				customers.GET("/:id/payments", controllers.GetCustomerPayments)
@@ -149,27 +149,27 @@ func SetupRoutes(r *gin.Engine) {
 				tasks.GET("", controllers.GetTasks)
 				tasks.GET("/:id", controllers.GetTask)
 				tasks.POST("", controllers.CreateTask)  // 所有认证用户可创建
-				tasks.PUT("/:id", middleware.RequireManager(), controllers.UpdateTask)
+				tasks.PUT("/:id", controllers.UpdateTask)  // 允许普通服务人员，需审批
 				tasks.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteTask)
 			}
 
-			// 协议管理路由
+			// 协议管理路由（普通服务人员可操作，但需审批）
 			agreements := authenticated.Group("/agreements")
 			{
 				agreements.GET("", controllers.GetAgreements)
 				agreements.GET("/:id", controllers.GetAgreement)
-				agreements.POST("", middleware.RequireManager(), controllers.CreateAgreement)
-				agreements.PUT("/:id", middleware.RequireManager(), controllers.UpdateAgreement)
+				agreements.POST("", controllers.CreateAgreement)  // 允许普通服务人员，需审批
+				agreements.PUT("/:id", controllers.UpdateAgreement)  // 允许普通服务人员，需审批
 				agreements.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeleteAgreement)
 			}
 
-			// 收款管理路由
+			// 收款管理路由（普通服务人员可操作，但需审批）
 			payments := authenticated.Group("/payments")
 			{
 				payments.GET("", controllers.GetPayments)
 				payments.GET("/:id", controllers.GetPayment)
-				payments.POST("", middleware.RequireManager(), controllers.CreatePayment)
-				payments.PUT("/:id", middleware.RequireManager(), controllers.UpdatePayment)
+				payments.POST("", controllers.CreatePayment)  // 允许普通服务人员，需审批
+				payments.PUT("/:id", controllers.UpdatePayment)  // 允许普通服务人员，需审批
 				payments.DELETE("/:id", middleware.RequireSuperAdmin(), controllers.DeletePayment)
 			}
 
