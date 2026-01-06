@@ -12,7 +12,7 @@
         active-text-color="#409EFF"
       >
         <el-menu-item
-          v-for="route in menuRoutes"
+          v-for="route in filteredMenuRoutes"
           :key="route.path"
           :index="route.path"
         >
@@ -35,11 +35,16 @@
           <el-dropdown>
             <span class="user-info">
               <el-icon><User /></el-icon>
-              <span>管理员</span>
+              <span>{{ userName }}</span>
+              <el-tag v-if="userRole" :type="getRoleTagType(userRole)" size="small" style="margin-left: 8px">
+                {{ getRoleLabel(userRole) }}
+              </el-tag>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item>个人设置</el-dropdown-item>
+                <el-dropdown-item v-if="canChangePassword" @click="handleChangePassword">
+                  修改密码
+                </el-dropdown-item>
                 <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -55,15 +60,60 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { removeToken, getStoredUser, removeStoredUser } from '@/api/auth'
 
 const router = useRouter()
 const route = useRoute()
 
-const menuRoutes = computed(() => {
+// 用户信息
+const userRole = computed(() => {
+  const user = getStoredUser()
+  return user?.role || ''
+})
+
+const userName = computed(() => {
+  const user = getStoredUser()
+  if (user?.role === 'service_person') {
+    return user?.name || '服务人员'
+  }
+  return user?.username || '管理员'
+})
+
+// 是否可以修改密码（只有 admin 和 manager 可以）
+const canChangePassword = computed(() => {
+  const role = userRole.value
+  return role === 'super_admin' || role === 'manager'
+})
+
+// 根据角色过滤菜单
+const filteredMenuRoutes = computed(() => {
+  const role = userRole.value
   const routes = router.getRoutes()
-  return routes.filter(r => r.path.startsWith('/') && r.meta?.title && r.path !== '/login')
+
+  return routes.filter(r => {
+    // 不显示登录页和修改密码页
+    if (r.path === '/login' || r.path === '/change-password') {
+      return false
+    }
+
+    // 检查是否有标题
+    if (!r.meta?.title) {
+      return false
+    }
+
+    // 检查权限
+    if (r.meta?.requiresSuperAdmin && role !== 'super_admin') {
+      return false
+    }
+    if (r.meta?.requiresManager && role !== 'super_admin' && role !== 'manager') {
+      return false
+    }
+
+    return r.path.startsWith('/') && r.path !== '/login'
+  })
 })
 
 const activeMenu = computed(() => {
@@ -74,9 +124,51 @@ const currentTitle = computed(() => {
   return route.meta?.title || '首页'
 })
 
-const handleLogout = () => {
-  router.push('/login')
+// 获取角色标签类型
+const getRoleTagType = (role: string) => {
+  if (role === 'super_admin') return 'danger'
+  if (role === 'manager') return 'warning'
+  return 'info'
 }
+
+// 获取角色标签文本
+const getRoleLabel = (role: string) => {
+  if (role === 'super_admin') return '超级用户'
+  if (role === 'manager') return '管理员'
+  if (role === 'service_person') return '服务人员'
+  return ''
+}
+
+// 修改密码
+const handleChangePassword = () => {
+  router.push('/change-password')
+}
+
+// 退出登录
+const handleLogout = async () => {
+  try {
+    await ElMessageBox.confirm('确认退出登录？', '提示', {
+      type: 'warning'
+    })
+
+    // 清除 token 和用户信息
+    removeToken()
+    removeStoredUser()
+
+    ElMessage.success('已退出登录')
+    router.push('/login')
+  } catch {
+    // 用户取消
+  }
+}
+
+onMounted(() => {
+  // 检查是否已登录
+  const user = getStoredUser()
+  if (!user && route.path !== '/login') {
+    router.push('/login')
+  }
+})
 </script>
 
 <style scoped>
@@ -127,6 +219,7 @@ const handleLogout = () => {
 .main-content {
   background-color: #f0f2f5;
   padding: 20px;
+  overflow: auto;
 }
 
 :deep(.el-menu) {

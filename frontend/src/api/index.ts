@@ -1,6 +1,24 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosRequestConfig, AxiosResponse } from 'axios'
 import { ElMessage } from 'element-plus'
 
+// Token key
+const TOKEN_KEY = 'erp_token'
+
+// 获取 token
+export const getToken = (): string | null => {
+  return localStorage.getItem(TOKEN_KEY)
+}
+
+// 设置 token
+export const setToken = (token: string): void => {
+  localStorage.setItem(TOKEN_KEY, token)
+}
+
+// 移除 token
+export const removeToken = (): void => {
+  localStorage.removeItem(TOKEN_KEY)
+}
+
 // 创建axios实例
 const request: AxiosInstance = axios.create({
   baseURL: '/api',
@@ -13,7 +31,11 @@ const request: AxiosInstance = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // 可以在这里添加token等认证信息
+    // 添加 token
+    const token = getToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
     return config
   },
   (error: any) => {
@@ -29,11 +51,22 @@ request.interceptors.response.use(
       return res.data
     } else {
       ElMessage.error(res.message || '请求失败')
+      // 401 未授权，跳转登录页
+      if (res.code === 401) {
+        removeToken()
+        window.location.href = '/login'
+      }
       return Promise.reject(new Error(res.message || '请求失败'))
     }
   },
   (error: any) => {
-    ElMessage.error(error.message || '网络错误')
+    if (error.response?.status === 401) {
+      ElMessage.error('登录已过期，请重新登录')
+      removeToken()
+      window.location.href = '/login'
+    } else {
+      ElMessage.error(error.message || '网络错误')
+    }
     return Promise.reject(error)
   }
 )
