@@ -7,36 +7,38 @@ import (
 
 var Logger *zap.Logger
 
+// parseLogLevel 解析日志级别字符串
+func parseLogLevel(level string) zapcore.Level {
+	switch level {
+	case "debug":
+		return zap.DebugLevel
+	case "info":
+		return zap.InfoLevel
+	case "warn":
+		return zap.WarnLevel
+	case "error":
+		return zap.ErrorLevel
+	case "fatal":
+		return zap.FatalLevel
+	default:
+		return zap.InfoLevel
+	}
+}
+
 // InitLogger 初始化日志系统
-func InitLogger(env string) error {
+// level: 日志级别 (debug, info, warn, error, fatal)
+func InitLogger(level string) error {
+	logLevel := parseLogLevel(level)
+
+	// 判断是否为开发环境（根据日志级别）
+	isDevelopment := logLevel == zap.DebugLevel
+
 	var config zap.Config
 
-	if env == "production" {
-		// 生产环境：JSON格式，只输出Info及以上级别
+	if isDevelopment {
+		// 开发环境：控制台友好格式
 		config = zap.Config{
-			Level:            zap.NewAtomicLevelAt(zap.InfoLevel),
-			Development:      false,
-			Encoding:         "json",
-			EncoderConfig:    zapcore.EncoderConfig{
-				TimeKey:        "ts",
-				LevelKey:       "level",
-				NameKey:        "logger",
-				CallerKey:      "caller",
-				MessageKey:     "msg",
-				StacktraceKey:  "stacktrace",
-				LineEnding:     zapcore.DefaultLineEnding,
-				EncodeLevel:    zapcore.LowercaseLevelEncoder,
-				EncodeTime:     zapcore.EpochMillisTimeEncoder,
-				EncodeDuration: zapcore.SecondsDurationEncoder,
-				EncodeCaller:   zapcore.ShortCallerEncoder,
-			},
-			OutputPaths:      []string{"stderr"},
-			ErrorOutputPaths: []string{"stderr"},
-		}
-	} else {
-		// 开发环境：控制台友好格式，输出Debug及以上级别
-		config = zap.Config{
-			Level:            zap.NewAtomicLevelAt(zap.DebugLevel),
+			Level:            zap.NewAtomicLevelAt(logLevel),
 			Development:      true,
 			Encoding:         "console",
 			EncoderConfig:    zapcore.EncoderConfig{
@@ -51,6 +53,28 @@ func InitLogger(env string) error {
 				EncodeLevel:    zapcore.CapitalColorLevelEncoder,
 				EncodeTime:     zapcore.ISO8601TimeEncoder,
 				EncodeDuration: zapcore.StringDurationEncoder,
+				EncodeCaller:   zapcore.ShortCallerEncoder,
+			},
+			OutputPaths:      []string{"stderr"},
+			ErrorOutputPaths: []string{"stderr"},
+		}
+	} else {
+		// 生产环境：JSON格式
+		config = zap.Config{
+			Level:            zap.NewAtomicLevelAt(logLevel),
+			Development:      false,
+			Encoding:         "json",
+			EncoderConfig:    zapcore.EncoderConfig{
+				TimeKey:        "ts",
+				LevelKey:       "level",
+				NameKey:        "logger",
+				CallerKey:      "caller",
+				MessageKey:     "msg",
+				StacktraceKey:  "stacktrace",
+				LineEnding:     zapcore.DefaultLineEnding,
+				EncodeLevel:    zapcore.LowercaseLevelEncoder,
+				EncodeTime:     zapcore.EpochMillisTimeEncoder,
+				EncodeDuration: zapcore.SecondsDurationEncoder,
 				EncodeCaller:   zapcore.ShortCallerEncoder,
 			},
 			OutputPaths:      []string{"stderr"},

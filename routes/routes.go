@@ -9,10 +9,17 @@ import (
 )
 
 // SetupGinEngine 创建并配置Gin引擎
-func SetupGinEngine(env string) *gin.Engine {
+func SetupGinEngine() *gin.Engine {
 	// 设置Gin运行模式
-	if env == "production" {
-		gin.SetMode(gin.ReleaseMode)
+	if config.AppConfig != nil {
+		mode := config.AppConfig.Server.Mode
+		if mode == "" {
+			if config.AppConfig.Server.Env == "production" {
+				gin.SetMode(gin.ReleaseMode)
+			}
+		} else {
+			gin.SetMode(mode)
+		}
 	}
 
 	r := gin.New()
