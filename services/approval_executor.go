@@ -87,7 +87,9 @@ func (e *ApprovalExecutor) executeTaskOperation(log *models.AuditLog) error {
 		config.DB.Model(log).Update("resource_id", task.ID)
 
 	case "update":
-		// 更新任务
+		// 更新任务 - 排除关联字段
+		delete(newData, "Customer")
+		delete(newData, "customer")
 		if err := config.DB.Model(&models.Task{}).Where("id = ?", *log.ResourceID).Updates(newData).Error; err != nil {
 			return err
 		}
@@ -116,6 +118,11 @@ func (e *ApprovalExecutor) executeAgreementOperation(log *models.AuditLog) error
 		config.DB.Model(log).Update("resource_id", agreement.ID)
 
 	case "update":
+		// 更新协议 - 排除关联字段
+		delete(newData, "Customer")
+		delete(newData, "customer")
+		delete(newData, "Payments")
+		delete(newData, "payments")
 		if err := config.DB.Model(&models.Agreement{}).Where("id = ?", *log.ResourceID).Updates(newData).Error; err != nil {
 			return err
 		}
@@ -144,6 +151,11 @@ func (e *ApprovalExecutor) executePaymentOperation(log *models.AuditLog) error {
 		config.DB.Model(log).Update("resource_id", payment.ID)
 
 	case "update":
+		// 更新收款 - 排除关联字段
+		delete(newData, "Customer")
+		delete(newData, "customer")
+		delete(newData, "Agreement")
+		delete(newData, "agreement")
 		if err := config.DB.Model(&models.Payment{}).Where("id = ?", *log.ResourceID).Updates(newData).Error; err != nil {
 			return err
 		}
