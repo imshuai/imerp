@@ -141,8 +141,8 @@ func SetManager(c *gin.Context) {
 		var existingAdmin models.AdminUser
 		err := config.DB.Where("person_id = ?", req.PersonID).First(&existingAdmin).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 创建新的 AdminUser
-			hashedPassword, _ := auth.HashPassword("manager")
+			// 创建新的 AdminUser，默认密码为 123456
+			hashedPassword, _ := auth.HashPassword("123456")
 			adminUser := models.AdminUser{
 				Username:          person.Name,
 				PasswordHash:      hashedPassword,
@@ -154,10 +154,18 @@ func SetManager(c *gin.Context) {
 				ErrorResponse(c, 500, "Failed to create admin user")
 				return
 			}
+		} else if existingAdmin.Role == "service_person" {
+			// 如果是服务人员，升级为管理员
+			config.DB.Model(&existingAdmin).Updates(map[string]interface{}{
+				"role":                 "manager",
+				"must_change_password":  true,
+			})
 		}
 	} else {
-		// 取消管理员权限，删除对应的 AdminUser
-		config.DB.Where("person_id = ?", req.PersonID).Delete(&models.AdminUser{})
+		// 取消管理员权限，将角色改为 service_person（而不是删除）
+		config.DB.Model(&models.AdminUser{}).
+			Where("person_id = ?", req.PersonID).
+			Update("role", "service_person")
 	}
 
 	// 更新 Person 的 IsManager

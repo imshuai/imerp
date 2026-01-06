@@ -1,6 +1,7 @@
 package services
 
 import (
+	"erp/auth"
 	"erp/config"
 	"erp/models"
 	"encoding/json"
@@ -164,13 +165,29 @@ func (e *ApprovalExecutor) executePersonOperation(log *models.AuditLog) error {
 
 	switch log.ActionType {
 	case "create":
+		// 创建人员
 		person := models.Person{}
 		if err := config.DB.Create(&person).Error; err != nil {
 			return err
 		}
 		config.DB.Model(log).Update("resource_id", person.ID)
+		// 如果是服务人员，创建对应的 AdminUser（默认密码 123456）
+		if person.IsServicePerson {
+			hashedPassword, _ := auth.HashPassword("123456")
+			adminUser := models.AdminUser{
+				Username:          person.Name,
+				PasswordHash:      hashedPassword,
+				Role:              "service_person",
+				PersonID:          &person.ID,
+				MustChangePassword: true,
+			}
+			if err := config.DB.Create(&adminUser).Error; err != nil {
+				return err
+			}
+		}
 
 	case "update":
+		// 更新人员
 		if err := config.DB.Model(&models.Person{}).Where("id = ?", *log.ResourceID).Updates(newData).Error; err != nil {
 			return err
 		}

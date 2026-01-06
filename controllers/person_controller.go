@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"erp/auth"
 	"erp/config"
 	"erp/models"
 	"fmt"
@@ -32,6 +33,20 @@ func CreatePerson(c *gin.Context) {
 			}
 			// 更新关联客户的ID字段
 			updatePersonCustomerIDs(&person)
+			// 如果是服务人员，创建对应的 AdminUser（默认密码 123456）
+			if person.IsServicePerson {
+				hashedPassword, _ := auth.HashPassword("123456")
+				adminUser := models.AdminUser{
+					Username:          person.Name,
+					PasswordHash:      hashedPassword,
+					Role:              "service_person",
+					PersonID:          &person.ID,
+					MustChangePassword: true,
+				}
+				if err := config.DB.Create(&adminUser).Error; err != nil {
+					return err
+				}
+			}
 			return nil
 		},
 	)
