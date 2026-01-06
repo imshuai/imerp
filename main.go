@@ -52,6 +52,9 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// 设置前端路由（放在最后，作为fallback）
+	routes.SetupFrontendRoutes(r)
+
 	// 启动服务
 	addr := ":8080"
 	config.Info("Server listening",
