@@ -38,10 +38,10 @@ func GetOverview(c *gin.Context) {
 	config.DB.Model(&models.Customer{}).Count(&stats.CustomerCount)
 
 	// 待办任务数
-	config.DB.Model(&models.Task{}).Where("status != ?", "completed").Count(&stats.PendingTaskCount)
+	config.DB.Model(&models.Task{}).Where("status != ?", models.TaskStatusCompleted).Count(&stats.PendingTaskCount)
 
 	// 有效协议数
-	config.DB.Model(&models.Agreement{}).Where("status = ?", "active").Count(&stats.ActiveAgreementCount)
+	config.DB.Model(&models.Agreement{}).Where("status = ?", models.AgreementStatusActive).Count(&stats.ActiveAgreementCount)
 
 	// 本月收款
 	now := time.Now()
@@ -65,9 +65,9 @@ func GetOverview(c *gin.Context) {
 func GetTaskStats(c *gin.Context) {
 	var stats TaskStats
 
-	config.DB.Model(&models.Task{}).Where("status = ?", "pending").Count(&stats.Pending)
-	config.DB.Model(&models.Task{}).Where("status = ?", "in_progress").Count(&stats.InProgress)
-	config.DB.Model(&models.Task{}).Where("status = ?", "completed").Count(&stats.Completed)
+	config.DB.Model(&models.Task{}).Where("status = ?", models.TaskStatusPending).Count(&stats.Pending)
+	config.DB.Model(&models.Task{}).Where("status = ?", models.TaskStatusInProgress).Count(&stats.InProgress)
+	config.DB.Model(&models.Task{}).Where("status = ?", models.TaskStatusCompleted).Count(&stats.Completed)
 
 	SuccessResponse(c, stats)
 }
