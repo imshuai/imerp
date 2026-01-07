@@ -195,12 +195,3 @@ func SetupRoutes(r *gin.Engine) {
 		}
 	}
 }
-
-// SetupFrontendRoutes 设置前端路由（SPA fallback）
-func SetupFrontendRoutes(r *gin.Engine) {
-	// 如果有前端静态文件，在这里配置
-	// 目前仅提供API服务，前端可以独立部署
-	r.NoRoute(func(c *gin.Context) {
-		c.JSON(404, gin.H{"code": 404, "message": "API endpoint not found"})
-	})
-}
