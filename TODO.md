@@ -22,7 +22,7 @@ require (
 
 ---
 
-## 已完成功能 (v0.4.0)
+## 已完成功能 (v0.3.0)
 
 ### 后端API
 - [x] 项目初始化（目录结构、依赖安装）
@@ -65,34 +65,16 @@ require (
 - [x] 人员Excel导出
 - [x] 客户Excel导出（含关联信息和协议）
 
-### 前端开发 (v0.4.0)
-- [x] Vue 3 + TypeScript + Vite 项目搭建
-- [x] Element Plus UI组件库集成
-- [x] Vue Router 路由配置
-- [x] Axios HTTP请求封装
-- [x] 登录页面
-- [x] Dashboard 首页统计
-- [x] 人员管理页面（CRUD + 搜索）
-- [x] 客户管理页面（CRUD + 搜索）
-- [x] 任务管理页面（CRUD + 状态筛选）
-- [x] 协议管理页面（CRUD + 状态筛选）
-- [x] 收款管理页面（CRUD + 日期筛选）
-- [x] 导入导出页面（文件上传/下载）
-- [x] 布局组件（侧边栏导航 + 顶部栏）
-- [x] Go embed 静态资源嵌入
-- [x] Gin 静态资源路由配置
-- [x] SPA 路由 fallback 支持
-
 ---
 
 ## 待实现功能
 
 ### 高优先级
-- [ ] 用户登录和权限管理（后端认证API）
-- [ ] 密码加密存储（当前为明文）
-- [ ] 前端登录功能对接后端API
+- [x] 用户登录和权限管理
+- [ ] 前端Vue + Element-UI项目搭建
 - [ ] 数据验证增强（输入格式校验）
 - [ ] 错误处理优化
+- [x] 密码加密存储（当前为明文）
 
 ### 中优先级
 - [ ] 任务提醒功能（即将到期的任务）
@@ -112,7 +94,7 @@ require (
 ## 功能扩展记录
 
 ### v0.5.0 (2026-01-05)
-PersonType 重构：
+PersonType 重构与前端开发：
 - 删除 PersonType 枚举类型
 - Person 模型使用 IsServicePerson 布尔属性标识服务人员
 - 法定代表人和投资人通过关联关系（RepresentativeCustomerIDs、InvestorCustomerIDs）确定
@@ -120,9 +102,6 @@ PersonType 重构：
 - 更新前后端 API 和导入导出功能
 - 添加跨平台构建脚本（build.sh、build.bat、build.ps1）
 - 支持 linux/amd64、linux/arm64、linux/armv7、windows/amd64 平台
-
-### v0.4.0 (2026-01-05)
-前端开发完成：
 - 新增Vue 3 + TypeScript + Vite前端项目
 - 集成Element Plus UI组件库
 - 完成所有核心页面开发（登录、Dashboard、人员、客户、任务、协议、收款、导入导出）
@@ -130,6 +109,16 @@ PersonType 重构：
 - 配置Gin静态资源路由
 - 支持单文件可执行程序部署
 - 修复所有TypeScript编译错误
+
+### v0.4.0 (2026-01-07)
+Customer模型重构：
+- 新增BankAccount表（对公账户管理）
+- 新增CustomerInvestor表（投资人关联，替代JSON字段）
+- Customer新增字段：办税人ID、信用等级、社保号、渝快办密码、经营范围
+- Person新增字段：TaxAgentCustomerIDs（办税人反向关联）
+- 新增枚举值API端点：客户类型、信用等级、账户类型
+- 使用纯Go SQLite驱动(glebarez/sqlite)替代CGO依赖
+- 添加完整的单元测试（27个测试用例全部通过）
 
 ### v0.3.0 (2026-01-05)
 导入导出功能：
@@ -159,8 +148,8 @@ PersonType 重构：
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| v0.5.0 | 2026-01-05 | PersonType 重构，添加构建脚本 |
-| v0.4.0 | 2026-01-05 | Vue 3前端开发完成，支持静态资源嵌入 |
+| v0.5.0 | 2026-01-05 | PersonType重构与前端开发完成 |
+| v0.4.0 | 2026-01-07 | Customer模型重构，新增对公账户、办税人等字段 |
 | v0.3.0 | 2026-01-05 | 新增Excel导入导出功能 |
 | v0.2.0 | 2026-01-04 | 数据模型重构，新增人员管理 |
 | v0.1.0 | 2026-01-04 | 后端API基础功能完成 |
