@@ -18,6 +18,7 @@ type Person struct {
 	RepresentativeCustomerIDs string     `json:"representative_customer_ids"`    // 担任法人的企业ID，逗号分隔: "1,5,8"
 	InvestorCustomerIDs       string     `json:"investor_customer_ids"`          // 持股的企业ID，逗号分隔: "1,2,3"
 	ServiceCustomerIDs        string     `json:"service_customer_ids"`           // 服务的企业ID，逗号分隔: "1,4,7"
+	TaxAgentCustomerIDs       string     `json:"tax_agent_customer_ids"`         // 担任办税人的企业ID，逗号分隔
 	CreatedAt                 time.Time  `json:"created_at"`
 	UpdatedAt                 time.Time  `json:"updated_at"`
 }

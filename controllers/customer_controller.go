@@ -232,6 +232,10 @@ func DeleteCustomer(c *gin.Context) {
 		return
 	}
 
+	// 手动删除关联的 BankAccount 和 CustomerInvestor
+	config.DB.Where("customer_id = ?", customerID).Delete(&models.BankAccount{})
+	config.DB.Where("customer_id = ?", customerID).Delete(&models.CustomerInvestor{})
+
 	// 清理Person表中的关联ID
 	config.DB.Model(&models.Person{}).
 		Where("representative_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
@@ -244,6 +248,10 @@ func DeleteCustomer(c *gin.Context) {
 	config.DB.Model(&models.Person{}).
 		Where("service_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
 		Update("service_customer_ids", gorm.Expr("REPLACE(service_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
+
+	config.DB.Model(&models.Person{}).
+		Where("tax_agent_customer_ids LIKE ?", "%,"+strconv.Itoa(int(customerID))+",%").
+		Update("tax_agent_customer_ids", gorm.Expr("REPLACE(tax_agent_customer_ids, ?, '')", ","+strconv.Itoa(int(customerID))+","))
 
 	// 记录操作日志
 	LogOperation(c, "delete", "customer", &customerID, customer.Name, customer, nil)
@@ -297,40 +305,38 @@ func loadCustomerRelations(customer *models.Customer) {
 		}
 	}
 
-	// 加载投资人列表
-	// investors字段可能是JSON字符串（前端JSON.stringify的结果），需要先解析为字符串再解析为数组
-	if customer.Investors != nil && len(customer.Investors) > 0 {
-		var investorInfos []models.InvestorInfo
-		var investorsJSON []byte
-
-		// 尝试直接解析（如果investors已经是JSON数组）
-		if err := json.Unmarshal(customer.Investors, &investorInfos); err != nil {
-			// 如果失败，尝试先解析为字符串（如果investors是JSON字符串）
-			var investorsStr string
-			if err2 := json.Unmarshal(customer.Investors, &investorsStr); err2 == nil {
-				investorsJSON = []byte(investorsStr)
-			} else {
-				// 如果还是失败，直接使用原始字节数组
-				investorsJSON = customer.Investors
-			}
-		} else {
-			// 直接解析成功，使用原始字节数组
-			investorsJSON = customer.Investors
+	// 加载投资人关联（从CustomerInvestor表）
+	var investorRelations []models.CustomerInvestor
+	config.DB.Where("customer_id = ?", customer.ID).Find(&investorRelations)
+	if len(investorRelations) > 0 {
+		// 获取投资人Person IDs
+		var personIDs []uint
+		for _, rel := range investorRelations {
+			personIDs = append(personIDs, rel.PersonID)
 		}
-
-		// 解析投资人信息
-		if len(investorsJSON) > 0 {
-			if err := json.Unmarshal(investorsJSON, &investorInfos); err == nil {
-				var investorIDs []uint
-				for _, info := range investorInfos {
-					investorIDs = append(investorIDs, info.PersonID)
-				}
-				if len(investorIDs) > 0 {
-					var investors []models.Person
-					config.DB.Where("id IN ?", investorIDs).Find(&investors)
-					customer.InvestorList = investors
-				}
+		// 加载Person信息
+		var persons []models.Person
+		config.DB.Where("id IN ?", personIDs).Find(&persons)
+		// 组装数据
+		personMap := make(map[uint]models.Person)
+		for _, p := range persons {
+			personMap[p.ID] = p
+		}
+		for i := range investorRelations {
+			if person, ok := personMap[investorRelations[i].PersonID]; ok {
+				investorRelations[i].Person = &person
 			}
+		}
+		customer.InvestorRelations = investorRelations
+	}
+
+	// 加载办税人列表
+	if customer.TaxAgentIDs != "" {
+		ids := StringToIDs(customer.TaxAgentIDs)
+		if len(ids) > 0 {
+			var taxAgents []models.Person
+			config.DB.Where("id IN ?", ids).Find(&taxAgents)
+			customer.TaxAgents = taxAgents
 		}
 	}
 
@@ -353,6 +359,11 @@ func loadCustomerRelations(customer *models.Customer) {
 			customer.Agreements = agreements
 		}
 	}
+
+	// 加载银行账户列表
+	var bankAccounts []models.BankAccount
+	config.DB.Where("customer_id = ?", customer.ID).Find(&bankAccounts)
+	customer.BankAccounts = bankAccounts
 }
 
 // syncPersonRelations 同步更新Person表的客户关联字段
@@ -371,20 +382,17 @@ func syncPersonRelations(customer *models.Customer) {
 		}
 	}
 
-	// 更新投资人关联
-	if customer.Investors != nil {
-		var investorInfos []models.InvestorInfo
-		if err := json.Unmarshal(customer.Investors, &investorInfos); err == nil {
-			for _, info := range investorInfos {
-				var inv models.Person
-				if config.DB.First(&inv, info.PersonID).Error == nil {
-					ids := StringToIDs(inv.InvestorCustomerIDs)
-					ids = appendUniqueID(ids, customerID)
-					newIDs := IDsToString(ids)
-					// 只更新关联字段，不触发完整模型保存
-					config.DB.Model(&inv).Update("investor_customer_ids", newIDs)
-				}
-			}
+	// 更新投资人关联（从CustomerInvestor表）
+	var investorRelations []models.CustomerInvestor
+	config.DB.Where("customer_id = ?", customerID).Find(&investorRelations)
+	for _, rel := range investorRelations {
+		var inv models.Person
+		if config.DB.First(&inv, rel.PersonID).Error == nil {
+			ids := StringToIDs(inv.InvestorCustomerIDs)
+			ids = appendUniqueID(ids, customerID)
+			newIDs := IDsToString(ids)
+			// 只更新关联字段，不触发完整模型保存
+			config.DB.Model(&inv).Update("investor_customer_ids", newIDs)
 		}
 	}
 
@@ -399,6 +407,21 @@ func syncPersonRelations(customer *models.Customer) {
 				newIDs := IDsToString(customerIDs)
 				// 只更新关联字段，不触发完整模型保存
 				config.DB.Model(&sp).Update("service_customer_ids", newIDs)
+			}
+		}
+	}
+
+	// 同步办税人关联
+	if customer.TaxAgentIDs != "" {
+		ids := StringToIDs(customer.TaxAgentIDs)
+		for _, personID := range ids {
+			var ta models.Person
+			if config.DB.First(&ta, personID).Error == nil {
+				customerIDs := StringToIDs(ta.TaxAgentCustomerIDs)
+				customerIDs = appendUniqueID(customerIDs, customerID)
+				newIDs := IDsToString(customerIDs)
+				// 只更新关联字段，不触发完整模型保存
+				config.DB.Model(&ta).Update("tax_agent_customer_ids", newIDs)
 			}
 		}
 	}
@@ -432,6 +455,21 @@ func cleanAssociationsForAudit(m map[string]interface{}) map[string]interface{} 
 		}
 	}
 
+	// 处理 tax_agent_ids
+	if taxAgents, ok := m["tax_agents"].([]interface{}); ok && len(taxAgents) > 0 {
+		var names []string
+		for _, ta := range taxAgents {
+			if taMap, ok := ta.(map[string]interface{}); ok {
+				if name, ok := taMap["name"].(string); ok {
+					names = append(names, name)
+				}
+			}
+		}
+		if len(names) > 0 {
+			m["tax_agent_ids"] = names
+		}
+	}
+
 	// 删除 GORM 关联对象字段
 	delete(m, "Customer")
 	delete(m, "Agreement")
@@ -439,7 +477,10 @@ func cleanAssociationsForAudit(m map[string]interface{}) map[string]interface{} 
 	delete(m, "Tasks")
 	delete(m, "Representative")
 	delete(m, "InvestorList")
+	delete(m, "InvestorRelations")
 	delete(m, "ServicePersons")
+	delete(m, "TaxAgents")
+	delete(m, "BankAccounts")
 	delete(m, "Agreements")
 	delete(m, "User")
 	delete(m, "Person")
@@ -447,7 +488,10 @@ func cleanAssociationsForAudit(m map[string]interface{}) map[string]interface{} 
 	// 删除由 loadCustomerRelations 等函数加载的关联列表字段
 	delete(m, "representative")
 	delete(m, "investor_list")
+	delete(m, "investor_relations")
 	delete(m, "service_persons")
+	delete(m, "tax_agents")
+	delete(m, "bank_accounts")
 	delete(m, "agreements_list")
 
 	return m

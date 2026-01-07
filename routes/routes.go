@@ -91,6 +91,11 @@ func SetupRoutes(r *gin.Engine) {
 		// 公开路由 - 获取人员列表（用于登录页面）
 		api.GET("/people", controllers.GetPeople)
 
+		// 枚举值获取路由（无需认证，供前端使用）
+		api.GET("/customers/types", controllers.GetCustomerTypes)
+		api.GET("/customers/credit-ratings", controllers.GetCreditRatings)
+		api.GET("/bank-accounts/types", controllers.GetAccountTypes)
+
 		// 需要认证的路由
 		authenticated := api.Group("")
 		authenticated.Use(middleware.AuthMiddleware())
@@ -189,4 +194,13 @@ func SetupRoutes(r *gin.Engine) {
 			}
 		}
 	}
+}
+
+// SetupFrontendRoutes 设置前端路由（SPA fallback）
+func SetupFrontendRoutes(r *gin.Engine) {
+	// 如果有前端静态文件，在这里配置
+	// 目前仅提供API服务，前端可以独立部署
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(404, gin.H{"code": 404, "message": "API endpoint not found"})
+	})
 }

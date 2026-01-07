@@ -33,6 +33,8 @@ func InitDatabase() error {
 	err = DB.AutoMigrate(
 		&models.Person{},
 		&models.Customer{},
+		&models.CustomerInvestor{},
+		&models.BankAccount{},
 		&models.Task{},
 		&models.Agreement{},
 		&models.Payment{},

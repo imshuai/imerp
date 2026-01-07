@@ -3,7 +3,6 @@ package models
 import (
 	"encoding/json"
 	"time"
-	"gorm.io/datatypes"
 )
 
 // JSONDate 日期类型，数据库存储为字符串，JSON序列化为YYYY-MM-DD格式
@@ -62,21 +61,40 @@ type CustomerType string
 const (
 	CustomerTypeLimitedCompany     CustomerType = "有限公司"      // 有限公司
 	CustomerTypeSoleProprietorship CustomerType = "个人独资企业"  // 个人独资企业
-	CustomerTypePartnership        CustomerType = "合伙企业"          // 合伙企业
-	CustomerTypeIndividualBusiness CustomerType = "个体工商户"  // 个体工商户
+	CustomerTypePartnership        CustomerType = "合伙企业"     // 合伙企业
+	CustomerTypeIndividualBusiness CustomerType = "个体工商户" // 个体工商户
 )
 
-// InvestorInfo 投资人信息（JSON结构）
-type InvestorInfo struct {
-	PersonID          uint                `json:"person_id"`
-	ShareRatio        float64             `json:"share_ratio"`         // 持股比例
-	InvestmentRecords []InvestmentRecord  `json:"investment_records,omitempty"` // 出资记录（可选）
+// GetCustomerTypeOptions 获取客户类型选项
+func GetCustomerTypeOptions() []CustomerType {
+	return []CustomerType{
+		CustomerTypeLimitedCompany,
+		CustomerTypeSoleProprietorship,
+		CustomerTypePartnership,
+		CustomerTypeIndividualBusiness,
+	}
 }
 
-// InvestmentRecord 出资记录
-type InvestmentRecord struct {
-	Date   string  `json:"date"`   // 出资日期
-	Amount float64 `json:"amount"` // 出资金额
+// CreditRating 纳税人信用等级
+type CreditRating string
+
+const (
+	CreditRatingA CreditRating = "A"
+	CreditRatingB CreditRating = "B"
+	CreditRatingC CreditRating = "C"
+	CreditRatingD CreditRating = "D"
+	CreditRatingM CreditRating = "M"
+)
+
+// GetCreditRatingOptions 获取信用等级选项
+func GetCreditRatingOptions() []CreditRating {
+	return []CreditRating{
+		CreditRatingA,
+		CreditRatingB,
+		CreditRatingC,
+		CreditRatingD,
+		CreditRatingM,
+	}
 }
 
 // Customer 客户信息
@@ -88,7 +106,6 @@ type Customer struct {
 	TaxNumber               string        `json:"tax_number"`           // 税号
 	Type                    CustomerType  `json:"type" gorm:"not null"` // 客户类型
 	RepresentativeID        *uint         `json:"representative_id"`    // 法定代表人ID
-	Investors               datatypes.JSON `json:"investors"`           // 投资人JSON数组
 	ServicePersonIDs        string        `json:"service_person_ids"`  // 服务人员ID，逗号分隔: "5,6"
 	AgreementIDs            string        `json:"agreement_ids"`       // 代理协议ID，逗号分隔: "1,3,5"
 	RegisteredCapital       float64       `json:"registered_capital"`   // 注册资本
@@ -98,14 +115,21 @@ type Customer struct {
 	TaxAdministrator         string        `json:"tax_administrator"`           // 税务管理员
 	TaxAdministratorPhone    string        `json:"tax_administrator_phone"`     // 税务管理员联系电话
 	TaxpayerType             string        `json:"taxpayer_type"`               // 纳税人类型（一般纳税人/小规模纳税人）
-	CreatedAt               time.Time     `json:"created_at"`
-	UpdatedAt               time.Time     `json:"updated_at"`
+	TaxAgentIDs              string        `json:"tax_agent_ids"`               // 办税人ID，逗号分隔
+	CreditRating             CreditRating  `json:"credit_rating"`               // 纳税人信用等级
+	SocialSecurityNumber     string        `json:"social_security_number"`      // 社保号
+	YukuaiBanPassword        string        `json:"yukuai_ban_password"`        // 渝快办密码
+	BusinessScope            string        `json:"business_scope"`              // 经营范围
+	CreatedAt                time.Time     `json:"created_at"`
+	UpdatedAt                time.Time     `json:"updated_at"`
 
 	// 关联（通过查询加载，不存储在数据库）
-	Representative *Person     `json:"representative,omitempty" gorm:"-"`
-	InvestorList   []Person    `json:"investor_list,omitempty" gorm:"-"`
-	ServicePersons []Person    `json:"service_persons,omitempty" gorm:"-"`
-	Agreements     []Agreement `json:"agreements_list,omitempty" gorm:"-"`
+	Representative    *Person             `json:"representative,omitempty" gorm:"-"`
+	TaxAgents          []Person            `json:"tax_agents,omitempty" gorm:"-"`
+	InvestorRelations []CustomerInvestor  `json:"investor_relations,omitempty" gorm:"-"`
+	ServicePersons    []Person            `json:"service_persons,omitempty" gorm:"-"`
+	Agreements        []Agreement         `json:"agreements_list,omitempty" gorm:"-"`
+	BankAccounts      []BankAccount       `json:"bank_accounts,omitempty" gorm:"-"`
 
 	// 原有关联
 	Tasks    []Task    `json:"tasks,omitempty" gorm:"foreignKey:CustomerID"`
