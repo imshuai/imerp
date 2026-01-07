@@ -259,6 +259,73 @@
             />
           </el-select>
         </el-form-item>
+
+        <!-- 办税人 -->
+        <el-form-item label="办税人">
+          <el-select
+            v-model="taxAgentIds"
+            multiple
+            placeholder="请选择办税人"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in taxAgentOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+
+        <!-- 新增字段 v0.4.0 -->
+        <el-divider content-position="left">其他信息</el-divider>
+        <el-form-item label="信用等级">
+          <el-select v-model="form.credit_rating" placeholder="请选择信用等级" style="width: 100%">
+            <el-option v-for="rating in creditRatingOptions" :key="rating" :label="rating" :value="rating" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="社保号">
+          <el-input v-model="form.social_security_number" placeholder="请输入社保号" />
+        </el-form-item>
+        <el-form-item label="渝快办密码">
+          <el-input v-model="form.yukuai_ban_password" type="password" show-password placeholder="请输入渝快办密码" />
+        </el-form-item>
+        <el-form-item label="经营范围">
+          <el-input v-model="form.business_scope" type="textarea" :rows="3" placeholder="请输入经营范围" />
+        </el-form-item>
+
+        <!-- 对公账户 -->
+        <el-divider content-position="left">对公账户</el-divider>
+        <el-button type="dashed" style="width: 100%; margin-bottom: 15px" @click="handleAddBankAccount">
+          <el-icon><Plus /></el-icon> 添加对公账户
+        </el-button>
+        <el-card v-for="(account, index) in bankAccountsForm" :key="index" style="margin-bottom: 10px">
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>账户 {{ index + 1 }}</span>
+              <el-button type="danger" size="small" text @click="handleRemoveBankAccount(index)">删除</el-button>
+            </div>
+          </template>
+          <el-form :model="account" label-width="100px">
+            <el-form-item label="开户银行">
+              <el-input v-model="account.bank_name" placeholder="请输入开户银行" />
+            </el-form-item>
+            <el-form-item label="账号">
+              <el-input v-model="account.account_number" placeholder="请输入账号" />
+            </el-form-item>
+            <el-form-item label="开户行号">
+              <el-input v-model="account.bank_code" placeholder="请输入开户行号" />
+            </el-form-item>
+            <el-form-item label="联系电话">
+              <el-input v-model="account.contact_phone" placeholder="请输入联系电话" />
+            </el-form-item>
+            <el-form-item label="账户类型">
+              <el-select v-model="account.account_type" placeholder="请选择账户类型" style="width: 100%">
+                <el-option v-for="type in accountTypeOptions" :key="type" :label="type" :value="type" />
+              </el-select>
+            </el-form-item>
+          </el-form>
+        </el-card>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -267,11 +334,17 @@
     </el-dialog>
 
     <!-- 客户详情弹窗 -->
-    <el-dialog v-model="detailDialogVisible" title="客户详情" width="700px" @close="handleDetailDialogClose">
+    <el-dialog v-model="detailDialogVisible" title="客户详情" width="800px" @close="handleDetailDialogClose">
       <el-descriptions :column="2" border v-if="currentCustomer">
         <el-descriptions-item label="公司名称">{{ currentCustomer.name }}</el-descriptions-item>
         <el-descriptions-item label="税号">{{ currentCustomer.tax_number }}</el-descriptions-item>
         <el-descriptions-item label="客户类型">{{ currentCustomer.type }}</el-descriptions-item>
+        <el-descriptions-item label="信用等级">
+          <el-tag v-if="currentCustomer.credit_rating" :type="getCreditRatingType(currentCustomer.credit_rating)" size="small">
+            {{ currentCustomer.credit_rating }}
+          </el-tag>
+          <span v-else>-</span>
+        </el-descriptions-item>
         <el-descriptions-item label="执照登记日">{{ currentCustomer.license_registration_date || '-' }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ currentCustomer.phone || '-' }}</el-descriptions-item>
         <el-descriptions-item label="注册资本">{{ currentCustomer.registered_capital ? currentCustomer.registered_capital.toLocaleString() + ' 元' : '-' }}</el-descriptions-item>
@@ -284,11 +357,27 @@
         <el-descriptions-item label="税务管理员">{{ currentCustomer.tax_administrator || '-' }}</el-descriptions-item>
         <el-descriptions-item label="税务管理员电话" :span="2">{{ currentCustomer.tax_administrator_phone || '-' }}</el-descriptions-item>
 
+        <!-- 新增字段 v0.4.0 -->
+        <el-descriptions-item label="社保号" :span="2">
+          <span v-if="currentCustomer.social_security_number" class="copy-cell" @click="handleCopy(currentCustomer.social_security_number)">
+            {{ currentCustomer.social_security_number }}
+            <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+          </span>
+          <span v-else>-</span>
+        </el-descriptions-item>
+        <el-descriptions-item label="经营范围" :span="2">{{ currentCustomer.business_scope || '-' }}</el-descriptions-item>
+
         <!-- 法定代表人 -->
         <el-descriptions-item label="法定代表人">{{ currentCustomer.representative?.name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="法人电话">{{ currentCustomer.representative?.phone || '-' }}</el-descriptions-item>
         <el-descriptions-item label="法人身份证">{{ currentCustomer.representative?.id_card || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="法人密码">{{ currentCustomer.representative?.password || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="法人密码">
+          <span v-if="currentCustomer.representative?.password" class="copy-cell" @click="handleCopy(currentCustomer.representative.password)">
+            {{ currentCustomer.representative.password }}
+            <el-icon class="copy-icon"><DocumentCopy /></el-icon>
+          </span>
+          <span v-else>-</span>
+        </el-descriptions-item>
 
         <!-- 投资人列表 -->
         <el-descriptions-item label="投资人" :span="2">
@@ -316,6 +405,36 @@
           </div>
           <span v-else>-</span>
         </el-descriptions-item>
+
+        <!-- 办税人 -->
+        <el-descriptions-item label="办税人" :span="2">
+          <div v-if="currentCustomer.tax_agents && currentCustomer.tax_agents.length > 0">
+            <el-tag v-for="person in currentCustomer.tax_agents" :key="person.id" type="success" style="margin-right: 5px;">
+              {{ person.name }}
+            </el-tag>
+          </div>
+          <span v-else>-</span>
+        </el-descriptions-item>
+
+        <!-- 对公账户 -->
+        <el-descriptions-item label="对公账户" :span="2">
+          <div v-if="currentCustomer.bank_accounts && currentCustomer.bank_accounts.length > 0">
+            <el-card v-for="(account, idx) in currentCustomer.bank_accounts" :key="idx" style="margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between;">
+                <div>
+                  <div><strong>{{ account.bank_name }}</strong></div>
+                  <div style="color: #666; font-size: 12px;">
+                    账号: {{ account.account_number }} | 类型: {{ account.account_type }}
+                  </div>
+                  <div v-if="account.contact_phone" style="color: #666; font-size: 12px;">
+                    电话: {{ account.contact_phone }}
+                  </div>
+                </div>
+              </div>
+            </el-card>
+          </div>
+          <span v-else>-</span>
+        </el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
@@ -329,9 +448,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
-import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from '@/api/customers'
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getCustomerTypes, getCreditRatings, getAccountTypes, type Customer, type CreditRating, type AccountType, type BankAccount } from '@/api/customers'
 import { getPeople, createPerson, updatePerson } from '@/api/people'
-import type { Customer } from '@/api/customers'
 import type { Person } from '@/api/people'
 import { smartCopy, debounce } from '@/utils/clipboard'
 
@@ -351,6 +469,16 @@ interface InvestorForm {
   investment_records: InvestmentRecord[]
 }
 
+// 对公账户表单接口
+interface BankAccountForm {
+  id?: number
+  bank_name: string
+  account_number: string
+  bank_code: string
+  contact_phone: string
+  account_type: AccountType
+}
+
 const loading = ref(false)
 const tableData = ref<Customer[]>([])
 const dialogVisible = ref(false)
@@ -364,6 +492,15 @@ const customerInvestors = ref<any[]>([])
 // 人员搜索相关
 const servicePersonOptions = ref<Person[]>([])
 const servicePersonIds = ref<number[]>([])
+const taxAgentOptions = ref<Person[]>([])
+const taxAgentIds = ref<number[]>([])
+
+// 枚举选项
+const creditRatingOptions = ref<CreditRating[]>([])
+const accountTypeOptions = ref<AccountType[]>([])
+
+// 对公账户表单列表
+const bankAccountsForm = ref<BankAccountForm[]>([])
 
 // 法定代表人详细信息表单
 const representativeForm = reactive<Partial<Person>>({
@@ -399,7 +536,13 @@ const form = reactive<Partial<Customer>>({
   tax_office: '',
   tax_administrator: '',
   tax_administrator_phone: '',
-  taxpayer_type: ''
+  taxpayer_type: '',
+  // 新增字段 v0.4.0
+  tax_agent_ids: '',
+  credit_rating: undefined,
+  social_security_number: '',
+  yukuai_ban_password: '',
+  business_scope: ''
 })
 
 const rules = {
@@ -602,9 +745,17 @@ const handleAdd = async () => {
     tax_office: '',
     tax_administrator: '',
     tax_administrator_phone: '',
-    taxpayer_type: ''
+    taxpayer_type: '',
+    // 新增字段 v0.4.0
+    tax_agent_ids: '',
+    credit_rating: undefined,
+    social_security_number: '',
+    yukuai_ban_password: '',
+    business_scope: ''
   })
   servicePersonIds.value = []
+  taxAgentIds.value = []
+  bankAccountsForm.value = []
   Object.assign(representativeForm, {
     id: undefined,
     name: '',
@@ -613,8 +764,8 @@ const handleAdd = async () => {
     password: ''
   })
   investorsForm.value = []
-  // 预先加载服务人员列表
-  await loadServicePersons()
+  // 预先加载服务人员和办税人列表
+  await Promise.all([loadServicePersons(), loadTaxAgents()])
   dialogVisible.value = true
 }
 
@@ -680,8 +831,28 @@ const handleEdit = async (row: Customer) => {
     }
   }
 
-  // 预先加载服务人员列表
-  await loadServicePersons()
+  // 办税人 v0.4.0
+  if (row.tax_agents) {
+    taxAgentIds.value = row.tax_agents.map((p: Person) => p.id)
+  } else {
+    taxAgentIds.value = []
+  }
+
+  // 对公账户 v0.4.0
+  bankAccountsForm.value = []
+  if (row.bank_accounts && row.bank_accounts.length > 0) {
+    bankAccountsForm.value = row.bank_accounts.map((acc: BankAccount) => ({
+      id: acc.id,
+      bank_name: acc.bank_name,
+      account_number: acc.account_number,
+      bank_code: acc.bank_code || '',
+      contact_phone: acc.contact_phone || '',
+      account_type: acc.account_type
+    }))
+  }
+
+  // 预先加载服务人员和办税人列表
+  await Promise.all([loadServicePersons(), loadTaxAgents()])
   dialogVisible.value = true
 }
 
@@ -906,7 +1077,10 @@ const handleSubmit = async () => {
       ...form,
       representative_id: representativeId,
       investors: JSON.stringify(investors),
-      service_person_ids: servicePersonIds.value.join(',')
+      service_person_ids: servicePersonIds.value.join(','),
+      // 新增字段 v0.4.0
+      tax_agent_ids: taxAgentIds.value.join(','),
+      bank_accounts: bankAccountsForm.value
     }
 
     if (isEdit.value) {
@@ -923,7 +1097,10 @@ const handleSubmit = async () => {
       // 检查其他字段是否改变
       const fieldsToCheck = ['name', 'phone', 'address', 'tax_number', 'type', 'registered_capital',
                                'license_registration_date', 'tax_registration_date', 'tax_office',
-                               'tax_administrator', 'tax_administrator_phone', 'taxpayer_type']
+                               'tax_administrator', 'tax_administrator_phone', 'taxpayer_type',
+                               // 新增字段 v0.4.0
+                               'tax_agent_ids', 'credit_rating', 'social_security_number',
+                               'yukuai_ban_password', 'business_scope']
       for (const field of fieldsToCheck) {
         const origVal = (currentCustomer.value as any)[field]
         const newVal = (submitData as any)[field]
@@ -980,7 +1157,60 @@ const handleCopy = async (text: string) => {
   await smartCopy(text)
 }
 
-onMounted(() => {
+// 加载枚举选项
+const loadEnumOptions = async () => {
+  try {
+    const [ratings, accountTypes] = await Promise.all([
+      getCreditRatings(),
+      getAccountTypes()
+    ])
+    creditRatingOptions.value = ratings
+    accountTypeOptions.value = accountTypes
+  } catch (error) {
+    console.error('加载枚举选项失败:', error)
+  }
+}
+
+// 加载办税人选项
+const loadTaxAgents = async () => {
+  try {
+    const res = await getPeople()
+    taxAgentOptions.value = res.items
+  } catch (error) {
+    console.error('加载办税人失败:', error)
+  }
+}
+
+// 添加对公账户
+const handleAddBankAccount = () => {
+  bankAccountsForm.value.push({
+    bank_name: '',
+    account_number: '',
+    bank_code: '',
+    contact_phone: '',
+    account_type: '基本户'
+  })
+}
+
+// 删除对公账户
+const handleRemoveBankAccount = (index: number) => {
+  bankAccountsForm.value.splice(index, 1)
+}
+
+// 获取信用等级标签类型
+const getCreditRatingType = (rating: CreditRating) => {
+  const typeMap: Record<CreditRating, any> = {
+    'A': 'success',
+    'B': '',
+    'C': 'warning',
+    'D': 'danger',
+    'M': 'info'
+  }
+  return typeMap[rating] || ''
+}
+
+onMounted(async () => {
+  await loadEnumOptions()
   loadData()
 })
 </script>
