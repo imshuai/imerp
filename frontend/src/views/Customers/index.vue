@@ -1201,7 +1201,7 @@ const handleRemoveBankAccount = (index: number) => {
 const getCreditRatingType = (rating: CreditRating) => {
   const typeMap: Record<CreditRating, any> = {
     'A': 'success',
-    'B': '',
+    'B': 'primary',
     'C': 'warning',
     'D': 'danger',
     'M': 'info'
