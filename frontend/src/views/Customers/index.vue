@@ -132,6 +132,9 @@
           <el-input-number v-model="form.registered_capital" :min="0" style="width: 280px" />
           <span style="margin-left: 10px">元</span>
         </el-form-item>
+        <el-form-item label="经营范围">
+          <el-input v-model="form.business_scope" type="textarea" :rows="3" placeholder="请输入经营范围" />
+        </el-form-item>
 
         <!-- 税务信息 -->
         <el-divider content-position="left">税务信息</el-divider>
@@ -152,6 +155,17 @@
             <el-option label="一般纳税人" value="一般纳税人" />
             <el-option label="小规模纳税人" value="小规模纳税人" />
           </el-select>
+        </el-form-item>
+        <el-form-item label="信用等级">
+          <el-select v-model="form.credit_rating" placeholder="请选择信用等级" style="width: 100%">
+            <el-option v-for="rating in creditRatingOptions" :key="rating" :label="rating" :value="rating" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="社保号">
+          <el-input v-model="form.social_security_number" placeholder="请输入社保号" />
+        </el-form-item>
+        <el-form-item label="渝快办密码">
+          <el-input v-model="form.yukuai_ban_password" placeholder="请输入渝快办密码" />
         </el-form-item>
 
         <!-- 法定代表人 -->
@@ -261,38 +275,45 @@
         </el-form-item>
 
         <!-- 办税人 -->
-        <el-form-item label="办税人">
-          <el-select
-            v-model="taxAgentIds"
-            multiple
-            placeholder="请选择办税人"
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in taxAgentOptions"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-
-        <!-- 新增字段 v0.4.0 -->
-        <el-divider content-position="left">其他信息</el-divider>
-        <el-form-item label="信用等级">
-          <el-select v-model="form.credit_rating" placeholder="请选择信用等级" style="width: 100%">
-            <el-option v-for="rating in creditRatingOptions" :key="rating" :label="rating" :value="rating" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="社保号">
-          <el-input v-model="form.social_security_number" placeholder="请输入社保号" />
-        </el-form-item>
-        <el-form-item label="渝快办密码">
-          <el-input v-model="form.yukuai_ban_password" type="password" show-password placeholder="请输入渝快办密码" />
-        </el-form-item>
-        <el-form-item label="经营范围">
-          <el-input v-model="form.business_scope" type="textarea" :rows="3" placeholder="请输入经营范围" />
-        </el-form-item>
+        <el-divider content-position="left">办税人</el-divider>
+        <el-button type="dashed" style="width: 100%; margin-bottom: 15px" @click="handleAddTaxAgent">
+          <el-icon><Plus /></el-icon> 添加办税人
+        </el-button>
+        <el-card v-for="(agent, index) in taxAgentsForm" :key="index" style="margin-bottom: 10px">
+          <template #header>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>办税人 {{ index + 1 }}</span>
+              <el-button type="danger" size="small" text @click="handleRemoveTaxAgent(index)">删除</el-button>
+            </div>
+          </template>
+          <el-form :model="agent" label-width="100px">
+            <el-form-item label="姓名">
+              <el-autocomplete
+                v-model="agent.name"
+                :fetch-suggestions="getSearchTaxAgentsForItem(index)"
+                placeholder="请输入姓名搜索或直接填写"
+                :trigger-on-focus="false"
+                clearable
+                style="width: 100%"
+                @select="(item: any) => handleTaxAgentAutoSelect(item, index)"
+                @clear="handleTaxAgentClear(index)"
+              >
+                <template #default="{ item }">
+                  <div>{{ item.name }} - {{ item.id_card || '无身份证号' }}</div>
+                </template>
+              </el-autocomplete>
+            </el-form-item>
+            <el-form-item label="电话">
+              <el-input v-model="agent.phone" placeholder="请输入电话" />
+            </el-form-item>
+            <el-form-item label="身份证号">
+              <el-input v-model="agent.id_card" placeholder="请输入身份证号" />
+            </el-form-item>
+            <el-form-item label="密码">
+              <el-input v-model="agent.password" placeholder="请输入密码" />
+            </el-form-item>
+          </el-form>
+        </el-card>
 
         <!-- 对公账户 -->
         <el-divider content-position="left">对公账户</el-divider>
@@ -329,7 +350,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitting" :disabled="submitting">确定</el-button>
       </template>
     </el-dialog>
 
@@ -479,6 +500,15 @@ interface BankAccountForm {
   account_type: AccountType
 }
 
+// 办税人表单接口
+interface TaxAgentForm {
+  id?: number
+  name: string
+  phone: string
+  id_card: string
+  password: string
+}
+
 const loading = ref(false)
 const tableData = ref<Customer[]>([])
 const dialogVisible = ref(false)
@@ -492,8 +522,6 @@ const customerInvestors = ref<any[]>([])
 // 人员搜索相关
 const servicePersonOptions = ref<Person[]>([])
 const servicePersonIds = ref<number[]>([])
-const taxAgentOptions = ref<Person[]>([])
-const taxAgentIds = ref<number[]>([])
 
 // 枚举选项
 const creditRatingOptions = ref<CreditRating[]>([])
@@ -501,6 +529,9 @@ const accountTypeOptions = ref<AccountType[]>([])
 
 // 对公账户表单列表
 const bankAccountsForm = ref<BankAccountForm[]>([])
+
+// 办税人表单列表
+const taxAgentsForm = ref<TaxAgentForm[]>([])
 
 // 法定代表人详细信息表单
 const representativeForm = reactive<Partial<Person>>({
@@ -676,6 +707,60 @@ const handleRemoveInvestmentRecord = (investorIndex: number, recordIndex: number
   investorsForm.value[investorIndex].investment_records.splice(recordIndex, 1)
 }
 
+// 为特定办税人索引创建搜索函数
+const getSearchTaxAgentsForItem = (_index: number) => {
+  const debouncedSearch = debounce(async (qs: string, cb: (results: any[]) => void) => {
+    if (!qs) {
+      cb([])
+      return
+    }
+    try {
+      const res = await getPeople({
+        keyword: qs
+      })
+      cb(res.items)
+    } catch (error) {
+      cb([])
+    }
+  }, 300)
+
+  return (queryString: string, cb: (results: any[]) => void) => {
+    debouncedSearch(queryString, cb)
+  }
+}
+
+// 选择办税人（autocomplete）
+const handleTaxAgentAutoSelect = (item: any, index: number) => {
+  const agent = taxAgentsForm.value[index]
+  agent.id = item.id
+  agent.name = item.name
+  agent.phone = item.phone || ''
+  agent.id_card = item.id_card || ''
+  agent.password = item.password || ''
+}
+
+// 清空办税人选择
+const handleTaxAgentClear = (index: number) => {
+  const agent = taxAgentsForm.value[index]
+  agent.id = undefined
+}
+
+// 添加办税人
+const handleAddTaxAgent = () => {
+  taxAgentsForm.value.push({
+    id: undefined,
+    name: '',
+    phone: '',
+    id_card: '',
+    password: ''
+  })
+}
+
+// 删除办税人
+const handleRemoveTaxAgent = (index: number) => {
+  taxAgentsForm.value.splice(index, 1)
+}
+
 // 加载所有服务人员（静态下拉）
 const loadServicePersons = async () => {
   try {
@@ -754,7 +839,7 @@ const handleAdd = async () => {
     business_scope: ''
   })
   servicePersonIds.value = []
-  taxAgentIds.value = []
+  taxAgentsForm.value = []
   bankAccountsForm.value = []
   Object.assign(representativeForm, {
     id: undefined,
@@ -764,8 +849,8 @@ const handleAdd = async () => {
     password: ''
   })
   investorsForm.value = []
-  // 预先加载服务人员和办税人列表
-  await Promise.all([loadServicePersons(), loadTaxAgents()])
+  // 预先加载服务人员列表
+  await loadServicePersons()
   dialogVisible.value = true
 }
 
@@ -832,10 +917,17 @@ const handleEdit = async (row: Customer) => {
   }
 
   // 办税人 v0.4.0
-  if (row.tax_agents) {
-    taxAgentIds.value = row.tax_agents.map((p: Person) => p.id)
-  } else {
-    taxAgentIds.value = []
+  taxAgentsForm.value = []
+  if (row.tax_agents && row.tax_agents.length > 0) {
+    for (const agent of row.tax_agents) {
+      taxAgentsForm.value.push({
+        id: agent.id,
+        name: agent.name || '',
+        phone: agent.phone || '',
+        id_card: agent.id_card || '',
+        password: agent.password || ''
+      })
+    }
   }
 
   // 对公账户 v0.4.0
@@ -851,8 +943,8 @@ const handleEdit = async (row: Customer) => {
     }))
   }
 
-  // 预先加载服务人员和办税人列表
-  await Promise.all([loadServicePersons(), loadTaxAgents()])
+  // 预先加载服务人员列表
+  await loadServicePersons()
   dialogVisible.value = true
 }
 
@@ -867,10 +959,16 @@ const handleDelete = (row: Customer) => {
 }
 
 const handleSubmit = async () => {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
+  // 防止重复提交
+  if (submitting.value) return
 
   submitting.value = true
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) {
+    submitting.value = false
+    return
+  }
+
   try {
     const idCardToPersonId = new Map<string, number>()
 
@@ -1073,13 +1171,95 @@ const handleSubmit = async () => {
       }
     }
 
+    // 处理办税人
+    const taxAgentIds: number[] = []
+    const originalTaxAgentIds = currentCustomer.value?.tax_agents?.map((p: Person) => p.id).sort() || []
+
+    for (const agent of taxAgentsForm.value) {
+      if (agent.name) {
+        let personId = agent.id
+
+        // 构建新的办税人对象
+        const newTaxAgentData = {
+          name: agent.name,
+          phone: agent.phone || '',
+          id_card: agent.id_card || '',
+          password: agent.password || ''
+        }
+
+        // 检查是否需要更新
+        if (agent.id) {
+          const originalAgent = currentCustomer.value?.tax_agents?.find((p: Person) => p.id === agent.id)
+          if (originalAgent) {
+            const originalData = {
+              name: originalAgent.name,
+              phone: originalAgent.phone || '',
+              id_card: originalAgent.id_card || '',
+              password: originalAgent.password || ''
+            }
+            if (!deepEqual(newTaxAgentData, originalData)) {
+              await updatePerson(agent.id, newTaxAgentData)
+              personId = agent.id
+              if (agent.id_card) {
+                idCardToPersonId.set(agent.id_card, agent.id)
+              }
+            } else {
+              personId = agent.id
+            }
+          } else {
+            await updatePerson(agent.id, newTaxAgentData)
+            personId = agent.id
+            if (agent.id_card) {
+              idCardToPersonId.set(agent.id_card, agent.id)
+            }
+          }
+        } else {
+          // 新办税人，需要创建
+          if (agent.id_card && idCardToPersonId.has(agent.id_card)) {
+            personId = idCardToPersonId.get(agent.id_card)!
+          } else if (agent.id_card) {
+            const existingRes = await getPeople({ keyword: agent.id_card })
+            const existing = existingRes.items.find((p: Person) => p.id_card === agent.id_card)
+            if (existing) {
+              await updatePerson(existing.id, {
+                name: agent.name,
+                phone: agent.phone,
+                password: agent.password
+              })
+              personId = existing.id
+              idCardToPersonId.set(agent.id_card, existing.id)
+            } else {
+              const newPerson = await createPerson({
+                name: agent.name,
+                phone: agent.phone,
+                id_card: agent.id_card,
+                password: agent.password
+              })
+              personId = newPerson.id
+              idCardToPersonId.set(agent.id_card!, newPerson.id)
+            }
+          } else {
+            const newPerson = await createPerson({
+              name: agent.name,
+              phone: agent.phone,
+              id_card: agent.id_card,
+              password: agent.password
+            })
+            personId = newPerson.id
+          }
+        }
+
+        taxAgentIds.push(personId)
+      }
+    }
+
     const submitData: any = {
       ...form,
       representative_id: representativeId,
       investors: JSON.stringify(investors),
       service_person_ids: servicePersonIds.value.join(','),
-      // 新增字段 v0.4.0
-      tax_agent_ids: taxAgentIds.value.join(','),
+      // 新增字段 v0.4.0 - 使用处理后的办税人ID列表
+      tax_agent_ids: taxAgentIds.join(','),
       bank_accounts: bankAccountsForm.value
     }
 
@@ -1113,6 +1293,12 @@ const handleSubmit = async () => {
           customerChanged = true
           break
         }
+      }
+
+      // 检查办税人是否改变
+      const newTaxAgentIdsSorted = [...taxAgentIds].sort()
+      if (JSON.stringify(originalTaxAgentIds) !== JSON.stringify(newTaxAgentIdsSorted)) {
+        customerChanged = true
       }
 
       // 如果有任何改变，才调用更新接口
@@ -1168,16 +1354,6 @@ const loadEnumOptions = async () => {
     accountTypeOptions.value = accountTypes
   } catch (error) {
     console.error('加载枚举选项失败:', error)
-  }
-}
-
-// 加载办税人选项
-const loadTaxAgents = async () => {
-  try {
-    const res = await getPeople()
-    taxAgentOptions.value = res.items
-  } catch (error) {
-    console.error('加载办税人失败:', error)
   }
 }
 
