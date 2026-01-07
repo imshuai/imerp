@@ -39,7 +39,7 @@ export type AccountType = '基本户' | '一般户' | '临时户'
 // 对公账户
 export interface BankAccount {
   id: number
-  customer_id: number
+  customer_id?: number  // 前端提交时不需要，后端自动设置
   bank_name: string
   account_number: string
   bank_code?: string

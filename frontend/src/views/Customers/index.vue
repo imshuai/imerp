@@ -448,7 +448,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
 import { DocumentCopy } from '@element-plus/icons-vue'
-import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getCustomerTypes, getCreditRatings, getAccountTypes, type Customer, type CreditRating, type AccountType, type BankAccount } from '@/api/customers'
+import { getCustomers, createCustomer, updateCustomer, deleteCustomer, getCreditRatings, getAccountTypes, type Customer, type CreditRating, type AccountType, type BankAccount } from '@/api/customers'
 import { getPeople, createPerson, updatePerson } from '@/api/people'
 import type { Person } from '@/api/people'
 import { smartCopy, debounce } from '@/utils/clipboard'
@@ -536,7 +536,7 @@ const form = reactive<Partial<Customer>>({
   tax_office: '',
   tax_administrator: '',
   tax_administrator_phone: '',
-  taxpayer_type: '',
+  taxpayer_type: undefined,
   // 新增字段 v0.4.0
   tax_agent_ids: '',
   credit_rating: undefined,
@@ -745,7 +745,7 @@ const handleAdd = async () => {
     tax_office: '',
     tax_administrator: '',
     tax_administrator_phone: '',
-    taxpayer_type: '',
+    taxpayer_type: undefined,
     // 新增字段 v0.4.0
     tax_agent_ids: '',
     credit_rating: undefined,
@@ -1073,7 +1073,7 @@ const handleSubmit = async () => {
       }
     }
 
-    const submitData = {
+    const submitData: any = {
       ...form,
       representative_id: representativeId,
       investors: JSON.stringify(investors),
