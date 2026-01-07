@@ -28,7 +28,7 @@ GET /api/people
 **查询参数**
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| is_service_person | boolean | 否 | 是否为服务人员 |
+| type | string | 否 | 人员类型 (法定代表人/投资人/服务人员/混合角色) |
 | keyword | string | 否 | 搜索关键词（匹配姓名、电话、身份证） |
 
 **响应示例**
@@ -41,7 +41,7 @@ GET /api/people
     "items": [
       {
         "id": 1,
-        "is_service_person": false,
+        "type": "法定代表人",
         "name": "张三",
         "phone": "13800138000",
         "id_card": "110101199001011234",
@@ -68,7 +68,7 @@ Content-Type: application/json
 **请求体**
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| is_service_person | boolean | 否 | 是否为服务人员（默认 false） |
+| type | string | 是 | 人员类型 |
 | name | string | 是 | 姓名 |
 | phone | string | 是 | 电话 |
 | id_card | string | 是 | 身份证号（唯一） |
@@ -77,13 +77,19 @@ Content-Type: application/json
 **请求体示例**
 ```json
 {
-  "is_service_person": false,
+  "type": "法定代表人",
   "name": "张三",
   "phone": "13800138000",
   "id_card": "110101199001011234",
   "password": "abc123"
 }
 ```
+
+**人员类型 (type)**
+- `法定代表人` - 企业法人代表
+- `投资人` - 企业股东
+- `服务人员` - 服务该客户的员工
+- `混合角色` - 同时担任多个角色
 
 **响应示例**
 ```json
@@ -92,7 +98,7 @@ Content-Type: application/json
   "message": "success",
   "data": {
     "id": 1,
-    "is_service_person": false,
+    "type": "法定代表人",
     "name": "张三",
     "phone": "13800138000",
     "id_card": "110101199001011234",
@@ -117,7 +123,7 @@ GET /api/people/:id
   "data": {
     "person": {
       "id": 1,
-      "is_service_person": false,
+      "type": "法定代表人",
       "name": "张三",
       "phone": "13800138000",
       "id_card": "110101199001011234",
@@ -161,7 +167,7 @@ Content-Type: application/json
   "message": "success",
   "data": {
     "id": 1,
-    "is_service_person": false,
+    "type": "法定代表人",
     "name": "张三丰",
     "phone": "13800138001",
     "id_card": "110101199001011234",
@@ -216,6 +222,63 @@ GET /api/people/:id/customers
       "as_service": []
     }
   }
+}
+```
+
+---
+
+## 枚举值 API
+
+### 1. 获取客户类型选项
+
+**请求**
+```
+GET /api/customers/types
+```
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": [
+    "有限公司",
+    "个人独资企业",
+    "合伙企业",
+    "个体工商户"
+  ]
+}
+```
+
+### 2. 获取信用等级选项
+
+**请求**
+```
+GET /api/customers/credit-ratings
+```
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": ["A", "B", "C", "D", "M"]
+}
+```
+
+### 3. 获取账户类型选项
+
+**请求**
+```
+GET /api/bank-accounts/types
+```
+
+**响应示例**
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": ["基本户", "一般户", "临时户"]
 }
 ```
 
@@ -1319,20 +1382,11 @@ GET /api/export/customers
 | 字段 | 类型 | 说明 |
 |------|------|------|
 | id | uint | 主键 |
-| is_service_person | boolean | 是否为服务人员 |
 | name | string | 姓名 |
 | phone | string | 电话 |
 | id_card | string | 身份证号（唯一） |
-| password | string | 登录密码 |
-| representative_customer_ids | string | 担任法人的企业ID（逗号分隔） |
-| investor_customer_ids | string | 持股的企业ID（逗号分隔） |
-| service_customer_ids | string | 服务的企业ID（逗号分隔） |
-
-**人员角色说明：**
-- **服务人员**: `is_service_person = true` 的人员
-- **法定代表人**: `representative_customer_ids` 不为空的人员
-- **投资人**: `investor_customer_ids` 不为空的人员
-- 一个人可以同时担任多个角色（既是投资人又是服务人员等）
+| is_service_person | bool | 是否为服务人员 |
+| tax_agent_customer_ids | string | 担任办税人的企业ID（逗号分隔） |
 
 ### Customer (客户)
 | 字段 | 类型 | 说明 |
@@ -1344,21 +1398,40 @@ GET /api/export/customers
 | tax_number | string | 税号 |
 | type | string | 客户类型（有限公司/个人独资企业/合伙企业/个体工商户） |
 | representative_id | uint | 法定代表人ID |
-| investor_ids | string | 投资人ID（逗号分隔） |
 | service_person_ids | string | 服务人员ID（逗号分隔） |
 | agreement_ids | string | 代理协议ID（逗号分隔） |
 | registered_capital | float64 | 注册资本 |
+| tax_agent_ids | string | 办税人ID（逗号分隔） |
+| credit_rating | string | 纳税人信用等级（A/B/C/D/M） |
+| social_security_number | string | 社保号 |
+| yukuai_ban_password | string | 渝快办密码 |
+| business_scope | string | 经营范围 |
 
-**investors JSON格式**
+### BankAccount (对公账户)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | uint | 主键 |
+| customer_id | uint | 关联客户ID |
+| bank_name | string | 开户银行 |
+| account_number | string | 账号 |
+| bank_code | string | 开户行号 |
+| contact_phone | string | 联系电话 |
+| account_type | string | 账户类型（基本户/一般户/临时户） |
+
+### CustomerInvestor (投资人关联)
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | uint | 主键 |
+| customer_id | uint | 关联客户ID |
+| person_id | uint | 关联人员ID |
+| share_ratio | float64 | 持股比例 |
+| investment_records | json | 出资记录 |
+
+**InvestmentRecord 格式**
 ```json
 [
-  {
-    "person_id": 1,
-    "share_ratio": 25.5,
-    "investment_records": [
-      {"date": "2024-01-01", "amount": 500000}
-    ]
-  }
+  {"date": "2024-01-01", "amount": 500000},
+  {"date": "2025-01-01", "amount": 200000}
 ]
 ```
 
